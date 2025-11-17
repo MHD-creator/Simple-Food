@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:simple_food/presentations/screens/auth/login_screen.dart';
-import 'package:simple_food/presentations/screens/auth/preinscription_screen.dart';
+import 'package:simple_food/services/api_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await ApiService.init();
+  } catch (e) {
+    // log and continue to avoid blocking UI at startup
+    // ignore: avoid_print
+    print('ApiService.init error: $e');
+  }
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
@@ -18,7 +25,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Color(0xFFFDFBF6)),
       ),
-      home: LoginScreen(),
+      home: const LoginScreen(),
     );
   }
 }

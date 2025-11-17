@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:simple_food/presentations/screens/auth/login_screen.dart';
+import 'package:simple_food/services/auth_service.dart';
 
 class CookerRegisterScreen extends StatefulWidget {
   const CookerRegisterScreen({super.key});
@@ -44,14 +45,64 @@ class _CookerRegisterScreenState extends State<CookerRegisterScreen> {
 
   void _register() async {
     if (!_formKey.currentState!.validate()) return;
+    
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
-    setState(() => _isLoading = false);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Inscription réussie (exemple)')),
+
+    try {
+      final result = await AuthService.register(
+        name: '${_prenomController.text.trim()} ${_nomController.text.trim()}',
+        telephone: _telephoneController.text.trim(),
+        password: _passwordController.text.trim(),
+        role: 'cuisinier',
+        address: '${_villeController.text.trim()}, ${_quartierController.text.trim()}',
       );
-      Navigator.pop(context);
+
+      if (result['success']) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Inscription réussie'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          // Rediriger vers la page de connexion
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => LoginScreen()),
+          );
+        }
+      } else {
+        if (mounted) {
+          String message = result['message'] ?? 'Erreur lors de l\'inscription';
+          
+          // Afficher les erreurs de validation spécifiques
+          if (result['errors'] != null && result['errors'].isNotEmpty) {
+            final errors = result['errors'] as List;
+            message = errors.map((e) => e['msg'] ?? e).join('\n');
+          }
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(message),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de connexion au serveur'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

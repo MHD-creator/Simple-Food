@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:simple_food/presentations/screens/auth/login_screen.dart';
+import 'package:simple_food/services/auth_service.dart';
 
 class ClientRegisterScreen extends StatefulWidget {
   const ClientRegisterScreen({super.key});
@@ -33,14 +34,63 @@ class _ClientRegisterScreenState extends State<ClientRegisterScreen> {
 
   void _register() async {
     if (!_formKey.currentState!.validate()) return;
+
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
-    setState(() => _isLoading = false);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Inscription réussie (exemple)')),
+
+    try {
+      final result = await AuthService.register(
+        name: _nomController.text.trim(),
+        telephone: _telephoneController.text.trim(),
+        password: _passwordController.text.trim(),
+        role: 'client',
+        age: int.tryParse(_ageController.text.trim()),
       );
-      Navigator.pop(context);
+
+      if (result['success']) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Inscription réussie'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // Rediriger vers la page de connexion
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => LoginScreen()),
+          );
+        }
+      } else {
+        if (mounted) {
+          String message = result['message'] ?? 'Erreur lors de l\'inscription';
+
+          // Afficher les erreurs de validation spécifiques
+          if (result['errors'] != null && result['errors'].isNotEmpty) {
+            final errors = result['errors'] as List;
+            message = errors.map((e) => e['msg'] ?? e).join('\n');
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message), backgroundColor: Colors.red),
+          );
+        }
+      }
+      print('ooooooooo $result');
+    } catch (e) {
+      if (mounted) {
+        print('Erreur de connexion au serveur $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de connexion au serveur  $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -62,10 +112,10 @@ class _ClientRegisterScreenState extends State<ClientRegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFDFBF6),
-       appBar: AppBar(
+      appBar: AppBar(
         backgroundColor: const Color(0xFFFDFBF6),
         shadowColor: const Color(0xFFFDFBF6),
-      foregroundColor:Colors.green,
+        foregroundColor: Colors.green,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -109,9 +159,11 @@ class _ClientRegisterScreenState extends State<ClientRegisterScreen> {
                 obscureText: _obscurePassword,
                 decoration: _inputDecoration('Mot de passe').copyWith(
                   suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword
-                        ? Icons.visibility_off
-                        : Icons.visibility),
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                    ),
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
                   ),
@@ -124,15 +176,18 @@ class _ClientRegisterScreenState extends State<ClientRegisterScreen> {
               TextFormField(
                 controller: _confirmPasswordController,
                 obscureText: _obscureConfirm,
-                decoration: _inputDecoration('Confirmer le mot de passe').copyWith(
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscureConfirm
-                        ? Icons.visibility_off
-                        : Icons.visibility),
-                    onPressed: () =>
-                        setState(() => _obscureConfirm = !_obscureConfirm),
-                  ),
-                ),
+                decoration: _inputDecoration('Confirmer le mot de passe')
+                    .copyWith(
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureConfirm
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                        ),
+                        onPressed: () =>
+                            setState(() => _obscureConfirm = !_obscureConfirm),
+                      ),
+                    ),
                 validator: (v) => v != _passwordController.text
                     ? 'Les mots de passe ne correspondent pas'
                     : null,
@@ -148,20 +203,24 @@ class _ClientRegisterScreenState extends State<ClientRegisterScreen> {
                     backgroundColor: const Color(0xFF2E7D32),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   child: _isLoading
                       ? const CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation(Colors.white))
+                          valueColor: AlwaysStoppedAnimation(Colors.white),
+                        )
                       : const Text(
                           "S'inscrire",
                           style: TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 16),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
                         ),
                 ),
               ),
-               const SizedBox(height: 18),
-               Row(
+              const SizedBox(height: 18),
+              Row(
                 children: [
                   Expanded(child: Divider(color: Colors.grey)),
                   Padding(
@@ -174,13 +233,13 @@ class _ClientRegisterScreenState extends State<ClientRegisterScreen> {
               TextButton(
                 onPressed: () => Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => LoginScreen()
-                    )
-                  ),
-                child: const Text('Se connecter', style: TextStyle(color: Colors.blue),),
+                  MaterialPageRoute(builder: (context) => LoginScreen()),
+                ),
+                child: const Text(
+                  'Se connecter',
+                  style: TextStyle(color: Colors.blue),
+                ),
               ),
-             
             ],
           ),
         ),

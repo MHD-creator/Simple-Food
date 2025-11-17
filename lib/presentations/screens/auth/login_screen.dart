@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:simple_food/presentations/screens/auth/preinscription_screen.dart';
+import 'package:simple_food/presentations/screens/client_screens/home_screen.dart';
+import 'package:simple_food/presentations/screens/cookers_screen.dart/index_screen.dart';
+import 'package:simple_food/services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,7 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _isLoading = false;
 
-  String _countryCode = '+226'; 
+  String _countryCode = '+226';
 
   @override
   void dispose() {
@@ -30,15 +33,64 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    await Future.delayed(const Duration(seconds: 2)); // simule requête réseau
-
-    setState(() => _isLoading = false);
-
- 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Connexion réussie (exemple)')),
+    try {
+      final result = await AuthService.login(
+        telephone: _phoneController.text.trim(),
+        password: _passwordController.text.trim(),
       );
+
+      if (result['success']) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Connexion réussie'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // Rediriger selon le rôle de l'utilisateur
+          final user = result['user'];
+          if (user.role == 'cuisinier') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => CookerDashboard()),
+            );
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => HomeScreenClient()),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          String message = result['message'] ?? 'Erreur de connexion';
+
+          // Afficher les erreurs de validation spécifiques
+          if (result['errors'] != null && result['errors'].isNotEmpty) {
+            final errors = result['errors'] as List;
+            message = errors.map((e) => e['msg'] ?? e).join('\n');
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message), backgroundColor: Colors.red),
+          );
+        }
+      }
+      print('ccccccccc $result');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de connexion au serveur'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -108,15 +160,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       // Champ téléphone (avec country code simple)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: [
                             BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4)),
+                              color: Colors.black.withOpacity(0.06),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
                           ],
                         ),
                         child: Row(
@@ -130,25 +185,34 @@ class _LoginScreenState extends State<LoginScreen> {
                               borderRadius: BorderRadius.circular(8),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8.0, vertical: 12),
+                                  horizontal: 8.0,
+                                  vertical: 12,
+                                ),
                                 child: Row(
                                   children: [
                                     Text(
                                       _countryCode,
                                       style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF2E3A25)),
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF2E3A25),
+                                      ),
                                     ),
                                     const SizedBox(width: 6),
-                                    const Icon(Icons.keyboard_arrow_down,
-                                        size: 20, color: Colors.grey),
+                                    const Icon(
+                                      Icons.keyboard_arrow_down,
+                                      size: 20,
+                                      color: Colors.grey,
+                                    ),
                                   ],
                                 ),
                               ),
                             ),
 
                             const VerticalDivider(
-                                width: 12, thickness: 1, color: Colors.grey),
+                              width: 12,
+                              thickness: 1,
+                              color: Colors.grey,
+                            ),
                             const SizedBox(width: 8),
 
                             // Input numéro
@@ -174,15 +238,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       // Champ mot de passe
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 2),
+                          horizontal: 12,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: [
                             BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4)),
+                              color: Colors.black.withOpacity(0.06),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
                           ],
                         ),
                         child: TextFormField(
@@ -191,7 +258,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           decoration: InputDecoration(
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 16),
+                              horizontal: 8,
+                              vertical: 16,
+                            ),
                             hintText: 'Mot de passe',
                             hintStyle: TextStyle(color: Colors.grey),
                             suffixIcon: IconButton(
@@ -201,8 +270,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                     : Icons.visibility,
                                 color: Colors.grey,
                               ),
-                              onPressed: () =>
-                                  setState(() => _obscurePassword = !_obscurePassword),
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
                             ),
                           ),
                           validator: _validatePassword,
@@ -214,8 +284,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () {
-                          },
+                          onPressed: () {},
                           style: TextButton.styleFrom(
                             padding: EdgeInsets.zero,
                             minimumSize: const Size(50, 30),
@@ -253,8 +322,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                       height: 18,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2.2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation(Colors.white),
+                                        valueColor: AlwaysStoppedAnimation(
+                                          Colors.white,
+                                        ),
                                       ),
                                     ),
                                     SizedBox(width: 12),
@@ -264,9 +334,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               : const Text(
                                   'Se connecter',
                                   style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                         ),
@@ -298,18 +367,21 @@ class _LoginScreenState extends State<LoginScreen> {
                           const Text('Pas encore de compte ?'),
                           TextButton(
                             onPressed: () {
-                              Navigator.pushReplacement(context, MaterialPageRoute(
-                                builder: (context) => PreinscriptionScreen()
-                              ));
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => PreinscriptionScreen(),
+                                ),
+                              );
                             },
                             child: const Text(
                               'S\'inscrire',
                               style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF2E7D32)
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF2E7D32),
                               ),
                             ),
-                          )
+                          ),
                         ],
                       ),
                     ],
@@ -335,12 +407,12 @@ class _LoginScreenState extends State<LoginScreen> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(14))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
       builder: (context) {
         // Exemple réduit : tu peux remplacer par un package 'country_picker' si nécessaire
         final countries = [
           {'name': 'Burkina Faso', 'code': '+226'},
-         
         ];
 
         return SafeArea(
@@ -363,8 +435,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Sélectionner le code du pays',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),

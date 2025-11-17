@@ -1,0 +1,1 @@
+{"version":3,"file":"plat_interface.d.ts","sourceRoot":"","sources":["../../src/interfaces/plat_interface.ts"],"names":[],"mappings":"AAAA,MAAM,WAAW,aAAa;IAC1B,GAAG,EAAE,MAAM,CAAC;IACZ,IAAI,EAAE,MAAM,CAAC;IACb,WAAW,EAAE,MAAM,GAAG,EAAE,CAAC;IACzB,KAAK,EAAE,MAAM,CAAC;CACjB"}
