@@ -1,5 +1,7 @@
 import { body, validationResult } from "express-validator";
 import { Plat } from "../models/plat_model.js";
+import { Review } from "../models/review_model.js";
+import mongoose from "mongoose";
 export const platValidation = [
     body('name')
         .trim()
@@ -65,6 +67,73 @@ export const createPlat = async (req, res) => {
             message: 'Erreur serveur lors de la création du plat',
             error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
+    }
+};
+export const createOrUpdateReview = async (req, res) => {
+    try {
+        const { id } = req.params; // plat id
+        const { rating, comment } = req.body;
+        const userId = req.user.userId;
+        const plat = await Plat.findById(id);
+        if (!plat) {
+            res.status(404).json({ success: false, message: 'Plat non trouvé' });
+            return;
+        }
+        if (typeof rating !== 'number' || rating < 1 || rating > 5) {
+            res.status(400).json({ success: false, message: 'La note doit être entre 1 et 5' });
+            return;
+        }
+        await Review.findOneAndUpdate({ plat: id, user: userId }, { $set: { rating, comment } }, { upsert: true, new: true, setDefaultsOnInsert: true });
+        const agg = await Review.aggregate([
+            { $match: { plat: new mongoose.Types.ObjectId(id) } },
+            { $group: { _id: '$plat', avg: { $avg: '$rating' }, count: { $sum: 1 } } }
+        ]);
+        const avg = agg[0]?.avg ?? 0;
+        const count = agg[0]?.count ?? 0;
+        plat.rating = Math.round(avg * 10) / 10; // round 1 decimal
+        plat.ratingCount = count;
+        await plat.save();
+        res.status(200).json({ success: true, message: 'Avis enregistré', data: { rating: plat.rating, ratingCount: plat.ratingCount } });
+    }
+    catch (error) {
+        console.error('Erreur lors de la création/mise à jour de l\'avis:', error);
+        res.status(500).json({ success: false, message: 'Erreur serveur lors de l\'enregistrement de l\'avis' });
+    }
+};
+export const getReviewsForPlat = async (req, res) => {
+    try {
+        const { id } = req.params; // plat id
+        const { page = 1, limit = 10 } = req.query;
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
+        const skip = (pageNum - 1) * limitNum;
+        const plat = await Plat.findById(id);
+        if (!plat) {
+            res.status(404).json({ success: false, message: 'Plat non trouvé' });
+            return;
+        }
+        const [items, total] = await Promise.all([
+            Review.find({ plat: id })
+                .populate('user', 'name telephone')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limitNum),
+            Review.countDocuments({ plat: id })
+        ]);
+        res.status(200).json({
+            success: true,
+            data: items,
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                total,
+                pages: Math.ceil(total / limitNum)
+            }
+        });
+    }
+    catch (error) {
+        console.error('Erreur lors de la récupération des avis:', error);
+        res.status(500).json({ success: false, message: 'Erreur serveur lors de la récupération des avis' });
     }
 };
 export const getPlats = async (req, res) => {

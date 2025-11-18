@@ -6,7 +6,9 @@ import {
   updatePlat, 
   deletePlat, 
   getMyPlats,
-  platValidation 
+  platValidation,
+  createOrUpdateReview,
+  getReviewsForPlat
 } from "../controllers/platController.js";
 import { authenticate, authorize } from "../middleware/auth.js";
 
@@ -39,6 +41,20 @@ router.get('/my', authenticate, authorize('cuisinier'), getMyPlats);
  * @access  Public
  */
 router.get('/:id', getPlatById);
+
+/**
+ * @route   POST /api/plats/:id/reviews
+ * @desc    Créer ou mettre à jour un avis sur un plat (1 avis par utilisateur)
+ * @access  Private (authentifié)
+ */
+router.post('/:id/reviews', authenticate, createOrUpdateReview);
+
+/**
+ * @route   GET /api/plats/:id/reviews
+ * @desc    Liste des avis d'un plat
+ * @access  Public
+ */
+router.get('/:id/reviews', getReviewsForPlat);
 
 /**
  * @route   PUT /api/plats/:id

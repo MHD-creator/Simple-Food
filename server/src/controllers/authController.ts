@@ -19,6 +19,13 @@ const generateToken = (user: IUser): string => {
     telephone: user.telephone,
     role: user.role
   };
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is not defined');
+  }
+  
+  return jwt.sign(payload, secret, { expiresIn: '7d' });
+};
 
 export const updateProfile = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -62,13 +69,6 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     console.error('Erreur lors de la mise à jour du profil:', error);
     res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
-};
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error('JWT_SECRET environment variable is not defined');
-  }
-  
-  return jwt.sign(payload, secret, { expiresIn: '7d' });
 };
 
 export const registerValidation = [

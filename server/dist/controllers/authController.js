@@ -14,6 +14,46 @@ const generateToken = (user) => {
     }
     return jwt.sign(payload, secret, { expiresIn: '7d' });
 };
+export const updateProfile = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { address } = req.body;
+        const user = await User.findById(userId);
+        if (!user) {
+            res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+            return;
+        }
+        if (address !== undefined) {
+            if (typeof address !== 'string' || address.trim().length === 0 || address.length > 300) {
+                res.status(400).json({ success: false, message: 'Adresse invalide' });
+                return;
+            }
+            user.address = address.trim();
+        }
+        await user.save();
+        res.status(200).json({
+            success: true,
+            message: 'Profil mis à jour',
+            data: {
+                id: user._id,
+                name: user.name,
+                telephone: user.telephone,
+                role: user.role,
+                age: user.age,
+                email: user.email,
+                address: user.address,
+                profileImage: user.profileImage,
+                isActive: user.isActive,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt
+            }
+        });
+    }
+    catch (error) {
+        console.error('Erreur lors de la mise à jour du profil:', error);
+        res.status(500).json({ success: false, message: 'Erreur serveur' });
+    }
+};
 export const registerValidation = [
     body('name')
         .trim()
