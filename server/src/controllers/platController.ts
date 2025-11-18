@@ -85,13 +85,21 @@ export const createPlat = async (req: Request, res: Response): Promise<void> => 
 
 export const getPlats = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { category, available, cuisinier, page = 1, limit = 10 } = req.query;
+    const { category, available, cuisinier, page = 1, limit = 10, q } = req.query;
     
     const filter: any = {};
     
     if (category) filter.category = category;
     if (available !== undefined) filter.available = available === 'true';
     if (cuisinier) filter.cuisinier = cuisinier;
+    if (q && typeof q === 'string' && q.trim().length > 0) {
+      const regex = new RegExp(q.trim(), 'i');
+      filter.$or = [
+        { name: regex },
+        { description: regex },
+        { category: regex },
+      ];
+    }
 
     const pageNum = parseInt(page as string);
     const limitNum = parseInt(limit as string);

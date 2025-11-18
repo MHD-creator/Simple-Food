@@ -69,7 +69,7 @@ export const createPlat = async (req, res) => {
 };
 export const getPlats = async (req, res) => {
     try {
-        const { category, available, cuisinier, page = 1, limit = 10 } = req.query;
+        const { category, available, cuisinier, page = 1, limit = 10, q } = req.query;
         const filter = {};
         if (category)
             filter.category = category;
@@ -77,6 +77,14 @@ export const getPlats = async (req, res) => {
             filter.available = available === 'true';
         if (cuisinier)
             filter.cuisinier = cuisinier;
+        if (q && typeof q === 'string' && q.trim().length > 0) {
+            const regex = new RegExp(q.trim(), 'i');
+            filter.$or = [
+                { name: regex },
+                { description: regex },
+                { category: regex },
+            ];
+        }
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;

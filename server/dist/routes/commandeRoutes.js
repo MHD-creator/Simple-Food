@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createCommande, getCommandes, getCommandeById, updateCommandeStatus, commandeValidation } from "../controllers/commandeController.js";
+import { createCommande, getCommandes, getCommandeById, updateCommandeStatus, commandeValidation, cancelCommandeByClient } from "../controllers/commandeController.js";
 import { authenticate, authorize } from "../middleware/auth.js";
 const router = Router();
 /**
@@ -26,5 +26,11 @@ router.get('/:id', authenticate, authorize('client', 'cuisinier'), getCommandeBy
  * @access  Private (cuisinier)
  */
 router.put('/:id/status', authenticate, authorize('cuisinier'), updateCommandeStatus);
+/**
+ * @route   PUT /api/commandes/:id/cancel
+ * @desc    Annuler une commande (client uniquement, statut en_attente)
+ * @access  Private (client)
+ */
+router.put('/:id/cancel', authenticate, authorize('client'), cancelCommandeByClient);
 export default router;
 //# sourceMappingURL=commandeRoutes.js.map

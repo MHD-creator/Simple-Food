@@ -74,7 +74,7 @@ export const createCommande = async (req: Request, res: Response): Promise<void>
       }
       const subtotal = plat.price * p.quantity;
       totalAmount += subtotal;
-      
+
       return {
         plat: p.plat,
         quantity: p.quantity,
@@ -302,5 +302,39 @@ export const updateCommandeStatus = async (req: Request, res: Response): Promise
       message: 'Erreur serveur lors de la mise à jour du statut',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+};
+
+export const cancelCommandeByClient = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = (req as AuthRequest).user.userId;
+
+    const commande = await Commande.findById(id);
+    if (!commande) {
+      res.status(404).json({ success: false, message: 'Commande non trouvée' });
+      return;
+    }
+    if (commande.client.toString() !== userId) {
+      res.status(403).json({ success: false, message: 'Accès non autorisé' });
+      return;
+    }
+    if (commande.status !== 'en_attente') {
+      res.status(400).json({ success: false, message: 'Seules les commandes en attente peuvent être annulées' });
+      return;
+    }
+
+    commande.status = 'annulée';
+    await commande.save();
+    await commande.populate([
+      { path: 'client', select: 'name telephone' },
+      { path: 'cuisinier', select: 'name telephone address' },
+      { path: 'plats.plat', select: 'name price image' }
+    ]);
+
+    res.status(200).json({ success: true, message: 'Commande annulée', data: commande });
+  } catch (error: any) {
+    console.error('Erreur lors de l\'annulation de la commande:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur lors de l\'annulation' });
   }
 };

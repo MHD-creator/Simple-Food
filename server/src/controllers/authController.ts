@@ -19,7 +19,50 @@ const generateToken = (user: IUser): string => {
     telephone: user.telephone,
     role: user.role
   };
-  
+
+export const updateProfile = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user.userId;
+    const { address } = req.body as { address?: string };
+
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+      return;
+    }
+
+    if (address !== undefined) {
+      if (typeof address !== 'string' || address.trim().length === 0 || address.length > 300) {
+        res.status(400).json({ success: false, message: 'Adresse invalide' });
+        return;
+      }
+      user.address = address.trim();
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Profil mis à jour',
+      data: {
+        id: user._id,
+        name: user.name,
+        telephone: user.telephone,
+        role: user.role,
+        age: user.age,
+        email: user.email,
+        address: user.address,
+        profileImage: user.profileImage,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      }
+    });
+  } catch (error: any) {
+    console.error('Erreur lors de la mise à jour du profil:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+};
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     throw new Error('JWT_SECRET environment variable is not defined');
