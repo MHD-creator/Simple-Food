@@ -176,7 +176,7 @@ Le frontend Flutter est configuré (dans `ApiService.baseUrl`) pour pointer vers
 static const String baseUrl = 'http://10.18.76.41:3001/api';
 ```
 
-Adapter cette URL selon l’environnement (localhost, IP réseau local, serveur distant, etc.).
+Adapter cette URL selon l’environnement selon vos donnee(port, ip ou localhost)
 
 ---
 

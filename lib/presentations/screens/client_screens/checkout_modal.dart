@@ -151,7 +151,7 @@ class _CheckoutModalState extends State<CheckoutModal> {
                 TextFormField(
                   controller: _phoneCtrl,
                   decoration: const InputDecoration(
-                    labelText: 'Téléphone (+225...)',
+                    labelText: 'Téléphone (+226...)',
                   ),
                   keyboardType: TextInputType.phone,
                   validator: (v) => (v == null || v.trim().length < 6)

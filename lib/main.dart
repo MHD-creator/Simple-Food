@@ -92,9 +92,13 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Color(0xFFFDFBF6)),
       ),
+      // Après l’onboarding, on affiche toujours la partie client.
+      // Les écrans/flux qui nécessitent une connexion (commandes, profil,
+      // création de commande, etc.) gèrent eux-mêmes la redirection ou
+      // l’affichage d’un message invitant à se connecter.
       home: !_hasSeenOnboarding
           ? OnboardingScreen(onFinished: _completeOnboarding)
-          : (_loggedIn ? const HomeScreenClient() : const LoginScreen()),
+          : const HomeScreenClient(),
     );
   }
 

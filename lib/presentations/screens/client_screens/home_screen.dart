@@ -8,6 +8,8 @@ import 'package:simple_food/presentations/screens/client_screens/recherches_scre
 import 'package:simple_food/presentations/screens/client_screens/widgets/category_filter.dart';
 import 'package:simple_food/presentations/screens/client_screens/widgets/custom_navbar.dart';
 import 'package:simple_food/presentations/screens/client_screens/widgets/plat_card.dart';
+import 'package:simple_food/presentations/screens/auth/login_screen.dart';
+import 'package:simple_food/services/api_service.dart';
 import 'package:simple_food/services/client_plat_service.dart';
 
 class HomeScreenClient extends StatefulWidget {
@@ -98,6 +100,37 @@ class _HomeScreenClientState extends State<HomeScreenClient> {
       appBar: customClientAppBar('Simple Food', null, context),
       body: Column(
         children: [
+          if (!ApiService.isAuthenticated)
+            Container(
+              width: double.infinity,
+              color: const Color(0xFFFFF3E0),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Colors.deepOrange),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      "Connectez-vous pour suivre vos commandes et accéder à votre profil.",
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                    },
+                    child: const Text(
+                      'Se connecter',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: TextField(

@@ -341,6 +341,41 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
 
+                      const SizedBox(height: 12),
+
+                      // Bouton pour continuer sans se connecter
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: OutlinedButton(
+                          onPressed: _isLoading
+                              ? null
+                              : () {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const HomeScreenClient(),
+                                    ),
+                                  );
+                                },
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF2E7D32)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: const Text(
+                            'Continuer sans se connecter',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF2E7D32),
+                            ),
+                          ),
+                        ),
+                      ),
+
                       const SizedBox(height: 18),
 
                       // Ou séparation
