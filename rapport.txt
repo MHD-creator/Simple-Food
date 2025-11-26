@@ -1,0 +1,94 @@
+RAPPORT DU PROJET SIMPLE FOOD
+
+1. Description generale
+------------------------
+Simple Food est une application mobile Flutter avec un backend Node.js/Express et une base de donnees MongoDB.
+Elle permet a des utilisateurs (clients) de decouvrir des plats faits maison, de parcourir les menus, d ajouter des plats au panier et de passer commande.
+
+Le projet contient :
+- une application Flutter (dossier lib/) pour l interface utilisateur,
+- un serveur backend Node.js/Express (dossier server/) pour la logique metier et la persistence.
+
+2. Fonctionnalites principales (Flutter)
+----------------------------------------
+- Authentification (inscription, connexion, profil, deconnexion) avec stockage du token JWT dans SharedPreferences.
+- Ecran d onboarding / bienvenue, affiche uniquement au premier lancement, base sur un boolen has_seen_onboarding stocke en local.
+- Gestion du panier: CartService pour la logique, CartStorage pour la persistence locale, sauvegarde automatique a chaque modification.
+- Ecrans clients (HomeScreenClient, affichage de plats avec PlatCard, etc.).
+- Centralisation des appels HTTP dans ApiService (GET/POST/PUT/DELETE, upload de fichiers, headers d authentification).
+
+3. Fonctionnement de l application Flutter
+------------------------------------------
+Au demarrage (main.dart) :
+- Initialisation Flutter et ApiService (lecture du token dans SharedPreferences).
+- Chargement du panier depuis le stockage local.
+- Mise en place d un listener pour sauvegarder le panier a chaque changement.
+- Lecture du flag has_seen_onboarding.
+- Verification de l authentification via ApiService.isAuthenticated.
+- Lancement de MyApp avec les parametres isLoggedIn et hasSeenOnboarding.
+
+Dans MyApp :
+- Si l application est encore en phase de validation du profil, un indicateur de chargement est affiche.
+- Sinon :
+  - Si l onboarding n a pas encore ete vu, affichage de l ecran OnboardingScreen.
+  - Sinon, redirection vers HomeScreenClient ou LoginScreen selon l etat de connexion.
+
+4. Architecture backend (server/)
+----------------------------------
+- Backend Node.js avec Express, ecrit en TypeScript.
+- Base de donnees MongoDB via Mongoose.
+- Authentification basee sur JWT (jsonwebtoken).
+- Hash des mots de passe avec bcryptjs.
+- Validation des donnees d entree avec express-validator.
+- Gestion des fichiers (ex. images de plats) avec multer.
+- Configuration via dotenv (MONGODB_URI, JWT_SECRET, etc.).
+
+Scripts principaux :
+- npm run dev : demarrage en mode developpement avec ts-node.
+- npm run build : compilation TypeScript vers JavaScript (dist/).
+- npm start : demarrage du serveur compile (dist/app.js).
+
+5. Pile technologique
+----------------------
+Front (Flutter) :
+- Flutter + Dart (Material Design).
+- http, shared_preferences, image_picker, fl_chart, geolocator, carousel_slider, etc.
+
+Back (server) :
+- Node.js, Express, MongoDB, Mongoose, JWT, TypeScript.
+
+6. Installation et execution
+-----------------------------
+Prerequis : Flutter SDK, Node.js, npm, instance MongoDB.
+
+Pour le Flutter (dans simple_food/) :
+- flutter pub get
+- flutter run
+
+Pour le backend (dans simple_food/server/) :
+- npm install
+- Configurer .env (MONGODB_URI, JWT_SECRET, etc.).
+- npm run dev (developpement) ou npm run build puis npm start (production).
+
+7. Structure du projet (vue d ensemble)
+---------------------------------------
+- lib/
+  - main.dart : point d entree Flutter, routing global, onboarding.
+  - services/ : api_service.dart, auth_service.dart, cart_service.dart, cart_storage.dart, etc.
+  - models/ : modeles Dart (utilisateurs, plats, commandes...).
+  - presentations/screens/ : ecrans d authentification, ecrans clients, ecrans admin/cuisiniers, ecran d onboarding.
+- server/
+  - src/ : code TypeScript (Express, routes, modeles Mongoose).
+  - dist/ : code JavaScript compile.
+  - package.json : dependances et scripts backend.
+- assets/ : ressources graphiques pour Flutter.
+- pubspec.yaml : configuration du projet Flutter et dependances.
+- README.md : rapport en version Markdown.
+- rapport.txt : ce rapport en texte brut.
+
+8. Evolutions possibles
+------------------------
+- Ajout de tests unitaires et de tests widget cote Flutter.
+- Ajout de tests d integration cote backend.
+- Amelioration de la gestion d etat (Provider, Riverpod, Bloc, etc.).
+- Ajout de notifications (statut de commande, messages, etc.).

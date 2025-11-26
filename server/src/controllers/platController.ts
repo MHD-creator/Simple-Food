@@ -36,6 +36,31 @@ export const platValidation = [
   body('preparationTime')
     .isInt({ min: 5 })
     .withMessage('Le temps de préparation minimum est de 5 minutes')
+  ,
+  body('stock')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('Le stock doit être un entier >= 0')
+  ,
+  body('promoActive')
+    .optional()
+    .isBoolean()
+    .withMessage('promoActive doit être un booléen')
+  ,
+  body('promoPercent')
+    .optional()
+    .isFloat({ min: 0, max: 90 })
+    .withMessage('promoPercent doit être entre 0 et 90')
+  ,
+  body('promoStart')
+    .optional()
+    .isISO8601()
+    .withMessage('promoStart doit être une date ISO')
+  ,
+  body('promoEnd')
+    .optional()
+    .isISO8601()
+    .withMessage('promoEnd doit être une date ISO')
 ];
 
 export const createPlat = async (req: Request, res: Response): Promise<void> => {
@@ -50,18 +75,46 @@ export const createPlat = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    const { name, description, price, category, ingredients, preparationTime } = req.body;
+    const { name, description, price, category, ingredients, preparationTime, stock, promoActive, promoPercent, promoStart, promoEnd } = req.body as any;
+    const images = Array.isArray((req.body as any).images)
+      ? ((req.body as any).images as any[]).filter((u) => typeof u === 'string' && u.length > 0)
+      : [];
+    const prices: { label: string; price: number }[] = Array.isArray((req.body as any).prices)
+      ? ((req.body as any).prices as any[])
+          .map((p) => ({
+            label:
+              typeof p?.label === 'string'
+                ? p.label
+                : ((p as any)?.libelle || (p as any)?.label || '')?.toString() ?? '',
+            price:
+              typeof p?.price === 'number'
+                ? p.price
+                : Number((p as any)?.prix ?? (p as any)?.price ?? 0),
+          }))
+          .filter((p) => p.label && !Number.isNaN(p.price) && p.price >= 0)
+      : [];
     const cuisinierId = (req as AuthRequest).user.userId;
+
+    const cover = (req.body as any).image || (images.length > 0 ? images[0] : null);
+    const firstPrice = prices[0]?.price ?? 0;
+    const basePrice = typeof price === 'number' ? price : firstPrice;
 
     const plat = new Plat({
       name,
       description,
-      price,
+      price: basePrice,
       category,
       ingredients,
       preparationTime,
       cuisinier: cuisinierId,
-      image: req.body.image || null
+      image: cover,
+      images: images,
+      prices: prices,
+      ...(typeof stock === 'number' ? { stock } : {}),
+      ...(typeof promoActive === 'boolean' ? { promoActive } : {}),
+      ...(typeof promoPercent === 'number' ? { promoPercent } : {}),
+      ...(promoStart ? { promoStart: new Date(promoStart) } : {}),
+      ...(promoEnd ? { promoEnd: new Date(promoEnd) } : {})
     });
 
     await plat.save();
@@ -189,7 +242,7 @@ export const getPlats = async (req: Request, res: Response): Promise<void> => {
 
     const plats = await Plat.find(filter)
       .populate('cuisinier', 'name telephone')
-      .sort({ createdAt: -1 })
+      .sort({ promoActive: -1, createdAt: -1 })
       .skip(skip)
       .limit(limitNum);
 
@@ -271,9 +324,17 @@ export const updatePlat = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
+    const body: any = { ...req.body };
+    if (Array.isArray(body.images)) {
+      body.images = body.images.filter((u: any) => typeof u === 'string' && u.length > 0);
+      if (!body.image && body.images.length > 0) {
+        body.image = body.images[0];
+      }
+    }
+
     const updatedPlat = await Plat.findByIdAndUpdate(
       id,
-      { ...req.body },
+      body,
       { new: true, runValidators: true }
     ).populate('cuisinier', 'name telephone');
 

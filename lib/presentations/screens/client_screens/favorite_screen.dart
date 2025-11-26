@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:simple_food/presentations/screens/client_screens/details_screen.dart';
 import 'package:simple_food/presentations/screens/client_screens/widgets/custom_client_appbar.dart';
 import 'package:simple_food/presentations/screens/client_screens/widgets/custom_navbar.dart';
+import 'package:simple_food/services/favorites_service.dart';
 
 class FavorisScreen extends StatefulWidget {
   const FavorisScreen({super.key});
@@ -11,22 +12,24 @@ class FavorisScreen extends StatefulWidget {
 }
 
 class _FavorisScreenState extends State<FavorisScreen> {
-  final List<Map<String, dynamic>> favoris = [
-    {
-      'id': 1,
-      'nom': 'Poulet braisé',
-      'image':
-          'https://firebasestorage.googleapis.com/v0/b/leneshop-83532.firebasestorage.app/o/produits%2Fproduct_1761589371396?alt=media&token=91964b8c-ccad-4950-ace1-d842724d018c',
+  List<Map<String, dynamic>> favoris = [];
 
-      'prix': 2500,
-      'note': 4.5,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
-  void supprimerFavori(int index) {
-    setState(() {
-      favoris.removeAt(index);
-    });
+  Future<void> _load() async {
+    final list = await FavoritesService.getAll();
+    if (!mounted) return;
+    setState(() => favoris = list);
+  }
+
+  Future<void> _supprimerFavori(int index) async {
+    final item = favoris[index];
+    await FavoritesService.toggle(item);
+    await _load();
   }
 
   @override
@@ -50,7 +53,7 @@ class _FavorisScreenState extends State<FavorisScreen> {
                     subtitle: Text("${plat['prix']} FCFA"),
                     trailing: IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => supprimerFavori(index),
+                      onPressed: () => _supprimerFavori(index),
                     ),
                     onTap: () {
                       Navigator.push(

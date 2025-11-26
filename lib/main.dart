@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:simple_food/presentations/screens/auth/login_screen.dart';
+import 'package:simple_food/presentations/screens/client_screens/home_screen.dart';
+import 'package:simple_food/presentations/screens/welcome_screen/onboarding_screen.dart';
 import 'package:simple_food/services/api_service.dart';
+import 'package:simple_food/services/cart_service.dart';
+import 'package:simple_food/services/cart_storage.dart';
+import 'package:simple_food/services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,22 +17,94 @@ void main() async {
     // ignore: avoid_print
     print('ApiService.init error: $e');
   }
-  runApp(const MyApp());
+  try {
+    await CartStorage.load();
+  } catch (e) {
+    // ignore: avoid_print
+    print('CartStorage.load error: $e');
+  }
+  // Sauvegarde automatique du panier à chaque changement
+  CartService.instance.items.addListener(() async {
+    await CartStorage.save();
+  });
+  final prefs = await SharedPreferences.getInstance();
+  final bool hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+  final bool loggedIn = ApiService.isAuthenticated;
+  runApp(MyApp(isLoggedIn: loggedIn, hasSeenOnboarding: hasSeenOnboarding));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-  // This widget is the root of your application.
+class MyApp extends StatefulWidget {
+  final bool isLoggedIn;
+  final bool hasSeenOnboarding;
+  const MyApp({
+    super.key,
+    required this.isLoggedIn,
+    required this.hasSeenOnboarding,
+  });
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool _loading = true;
+  bool _loggedIn = false;
+  bool _hasSeenOnboarding = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loggedIn = widget.isLoggedIn;
+    _hasSeenOnboarding = widget.hasSeenOnboarding;
+    _validate();
+  }
+
+  Future<void> _validate() async {
+    if (_loggedIn) {
+      final res = await AuthService.getProfile();
+      if (mounted) {
+        if (res['success'] != true) {
+          await ApiService.clearToken();
+          _loggedIn = false;
+        }
+        setState(() => _loading = false);
+      }
+    } else {
+      setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Flutter Demo',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Color(0xFFFDFBF6)),
+        ),
+        home: const Scaffold(body: Center(child: CircularProgressIndicator())),
+      );
+    }
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Flutter Demo',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Color(0xFFFDFBF6)),
       ),
-      home: const LoginScreen(),
+      home: !_hasSeenOnboarding
+          ? OnboardingScreen(onFinished: _completeOnboarding)
+          : (_loggedIn ? const HomeScreenClient() : const LoginScreen()),
     );
+  }
+
+  Future<void> _completeOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('has_seen_onboarding', true);
+    if (!mounted) return;
+    setState(() {
+      _hasSeenOnboarding = true;
+    });
   }
 }
 

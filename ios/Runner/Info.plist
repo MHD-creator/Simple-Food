@@ -1,3 +1,7 @@
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Votre localisation est utilisée pour faciliter la livraison de votre commande.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>Votre localisation est utilisée pour faciliter la livraison de votre commande.</string>
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">

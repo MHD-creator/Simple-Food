@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:simple_food/presentations/screens/client_screens/widgets/custom_client_appbar.dart';
 import 'package:simple_food/presentations/screens/client_screens/details_screen.dart';
 import 'package:simple_food/presentations/screens/client_screens/widgets/custom_navbar.dart';
+import 'package:simple_food/services/commande_service.dart';
+import 'package:simple_food/services/api_service.dart';
+import 'package:simple_food/presentations/screens/auth/login_screen.dart';
 
 class CommandesScreen extends StatefulWidget {
   const CommandesScreen({super.key});
@@ -12,71 +15,94 @@ class CommandesScreen extends StatefulWidget {
 
 class _CommandesScreenState extends State<CommandesScreen> {
   String selectedStatus = "Tous";
+  List<dynamic> commandes = [];
+  bool _loading = false;
+  String? _error;
 
-  final List<Map<String, dynamic>> commandes = [
-    {
-      'id': 1,
-      'statut': 'En cours',
-      'date': '05 Nov 2025',
-      'total': 5500,
-      'plats': [
-        {
-          'nom': 'Poulet braisé',
-          'prix': 2500,
-          'image':
-              'https://firebasestorage.googleapis.com/v0/b/leneshop-83532.firebasestorage.app/o/produits%2Fproduct_1761589371396?alt=media&token=91964b8c-ccad-4950-ace1-d842724d018c',
-        },
-        {
-          'nom': 'Jus de bissap',
-          'prix': 1000,
-          'image':
-              'https://firebasestorage.googleapis.com/v0/b/leneshop-83532.firebasestorage.app/o/produits%2Fproduct_1761589371396?alt=media&token=91964b8c-ccad-4950-ace1-d842724d018c',
-        },
-      ],
-    },
-    {
-      'id': 2,
-      'statut': 'Livrée',
-      'date': '01 Nov 2025',
-      'total': 3500,
-      'plats': [
-        {
-          'nom': 'Salade César',
-          'prix': 2000,
-          'image':
-              'https://firebasestorage.googleapis.com/v0/b/leneshop-83532.firebasestorage.app/o/produits%2Fproduct_1761589371396?alt=media&token=91964b8c-ccad-4950-ace1-d842724d018c',
-        },
-        {
-          'nom': 'Smoothie Mangue',
-          'prix': 1500,
-          'image':
-              'https://firebasestorage.googleapis.com/v0/b/leneshop-83532.firebasestorage.app/o/produits%2Fproduct_1761589371396?alt=media&token=91964b8c-ccad-4950-ace1-d842724d018c',
-        },
-      ],
-    },
-    {
-      'id': 3,
-      'statut': 'Annulée',
-      'date': '30 Oct 2025',
-      'total': 2000,
-      'plats': [
-        {
-          'nom': 'Pizza Margherita',
-          'prix': 2000,
-          'image':
-              'https://firebasestorage.googleapis.com/v0/b/leneshop-83532.firebasestorage.app/o/produits%2Fproduct_1761588728651?alt=media&token=3d8ab690-848b-4eb9-8b28-6e6080232642',
-        },
-      ],
-    },
+  List<String> filtres = [
+    "Tous",
+    "en_attente",
+    "en_preparation",
+    "en_livraison",
+    "livrée",
+    "annulée",
   ];
 
-  List<String> filtres = ["Tous", "En cours", "Livrée", "Annulée"];
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (!ApiService.isAuthenticated) {
+      setState(() {
+        commandes = [];
+        _loading = false;
+        _error = null;
+      });
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final status = selectedStatus == 'Tous' ? null : selectedStatus;
+    final res = await CommandeService.getCommandes(status: status);
+    if (!mounted) return;
+    if (res['success'] == true) {
+      setState(() {
+        commandes = res['data'] as List;
+        _loading = false;
+      });
+    } else {
+      setState(() {
+        _error = res['message']?.toString() ?? 'Erreur';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _annuler(String id) async {
+    final res = await CommandeService.cancelCommande(id);
+    if (!mounted) return;
+    if (res['success'] == true) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Commande annulée')));
+      _load();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message']?.toString() ?? 'Erreur')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = selectedStatus == "Tous"
-        ? commandes
-        : commandes.where((c) => c['statut'] == selectedStatus).toList();
+    if (!ApiService.isAuthenticated) {
+      return Scaffold(
+        appBar: customClientAppBar("Mes commandes", null, context),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Connectez-vous pour voir vos commandes"),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                ),
+                child: const Text('Se connecter'),
+              ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: customNavBar(1, null, context),
+      );
+    }
+    final filtered = commandes;
 
     return Scaffold(
       appBar: customClientAppBar("Mes commandes", null, context),
@@ -92,14 +118,17 @@ class _CommandesScreenState extends State<CommandesScreen> {
                 itemCount: filtres.length,
                 itemBuilder: (context, index) {
                   final status = filtres[index];
-                  final isSelected = selectedStatus == status;
+                  final isSelected =
+                      selectedStatus == status ||
+                      (selectedStatus == 'Tous' && status == 'Tous');
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: ChoiceChip(
                       label: Text(status),
                       selected: isSelected,
-                      onSelected: (_) {
+                      onSelected: (_) async {
                         setState(() => selectedStatus = status);
+                        await _load();
                       },
                       selectedColor: Colors.deepOrange,
                       backgroundColor: Colors.grey[200],
@@ -117,163 +146,224 @@ class _CommandesScreenState extends State<CommandesScreen> {
           ),
 
           Expanded(
-            child: filtered.isEmpty
-                ? const Center(
-                    child: Text(
-                      "Aucune commande trouvée.",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(10),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final commande = filtered[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        elevation: 3,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // En-tête commande
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : (filtered.isEmpty
+                      ? Center(
+                          child: Text(
+                            _error ?? "Aucune commande trouvée.",
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(10),
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) {
+                            final commande =
+                                filtered[index] as Map<String, dynamic>;
+                            final status =
+                                (commande['status'] ?? commande['statut'] ?? '')
+                                    .toString();
+                            final id = (commande['_id'] ?? commande['id'] ?? '')
+                                .toString();
+                            return Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    "Commande #${commande['id']}",
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 5,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _getStatusColor(
-                                        commande['statut'] as String,
-                                      ),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      commande['statut'],
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                "Date : ${commande['date']}",
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                              const SizedBox(height: 10),
-
-                              // Miniatures des plats
-                              SizedBox(
-                                height: 85,
-                                child: ListView.builder(
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: commande['plats'].length,
-                                  itemBuilder: (context, i) {
-                                    final plat = commande['plats'][i];
-                                    return GestureDetector(
-                                      onTap: () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              PlatDetailsScreen(plat: plat),
+                                  // En-tête commande
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Commande #${id.isNotEmpty ? id.substring(0, 6) : '------'}",
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
                                         ),
                                       ),
-                                      child: Container(
-                                        width: 80,
-                                        margin: const EdgeInsets.only(
-                                          right: 10,
-                                        ),
-                                        child: Column(
-                                          children: [
-                                            ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              child: Image.network(
-                                                plat['image'],
-                                                height: 55,
-                                                width: 70,
-                                                fit: BoxFit.cover,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              plat['nom'],
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-
-                              const SizedBox(height: 10),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    "Total : ${commande['total']} FCFA",
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  if (commande['statut'] == 'En cours')
-                                    ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.redAccent,
+                                      Container(
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
+                                          horizontal: 10,
+                                          vertical: 5,
                                         ),
-                                        shape: RoundedRectangleBorder(
+                                        decoration: BoxDecoration(
+                                          color: _getStatusColor(status),
                                           borderRadius: BorderRadius.circular(
                                             20,
                                           ),
                                         ),
+                                        child: Text(
+                                          status,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                          ),
+                                        ),
                                       ),
-                                      icon: const Icon(Icons.cancel, size: 18),
-                                      label: const Text(
-                                        "Annuler",
-                                        style: TextStyle(fontSize: 13),
-                                      ),
-                                      onPressed: () => _confirmerAnnulation(
-                                        context,
-                                        commande['id'],
-                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  if (commande['createdAt'] != null)
+                                    Text(
+                                      "Date : ${commande['createdAt']}",
+                                      style: TextStyle(color: Colors.grey[600]),
                                     ),
+                                  const SizedBox(height: 10),
+
+                                  // Miniatures des plats
+                                  SizedBox(
+                                    height: 85,
+                                    child: ListView.builder(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount:
+                                          (commande['plats'] as List).length,
+                                      itemBuilder: (context, i) {
+                                        final plat =
+                                            (commande['plats'] as List)[i];
+                                        final platObj =
+                                            plat is Map<String, dynamic>
+                                            ? plat
+                                            : <String, dynamic>{};
+                                        final platData =
+                                            platObj['plat'] ?? platObj;
+                                        String _baseOrigin() {
+                                          final uri = Uri.parse(
+                                            ApiService.baseUrl,
+                                          );
+                                          final port = uri.hasPort
+                                              ? ':${uri.port}'
+                                              : '';
+                                          return '${uri.scheme}://${uri.host}$port';
+                                        }
+
+                                        String _normalizeImage(String? src) {
+                                          if (src == null || src.isEmpty)
+                                            return '';
+                                          final lower = src.toLowerCase();
+                                          final isHttp =
+                                              lower.startsWith('http://') ||
+                                              lower.startsWith('https://');
+                                          final isLocal =
+                                              lower.startsWith('file://') ||
+                                              lower.startsWith('c:') ||
+                                              lower.startsWith('d:') ||
+                                              lower.startsWith('/storage');
+                                          if (isLocal) return src;
+                                          if (isHttp) return src;
+                                          final origin = _baseOrigin();
+                                          return src.startsWith('/')
+                                              ? '$origin$src'
+                                              : '$origin/$src';
+                                        }
+
+                                        final imgUrl = _normalizeImage(
+                                          (platData['image'] ?? '').toString(),
+                                        );
+                                        return GestureDetector(
+                                          onTap: () => Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => PlatDetailsScreen(
+                                                plat: {
+                                                  'id': (platData['_id'] ?? '')
+                                                      .toString(),
+                                                  'nom':
+                                                      platData['name'] ??
+                                                      'Plat',
+                                                  'image': imgUrl,
+                                                  'prix':
+                                                      platData['price'] ?? 0,
+                                                  'note': 0,
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                          child: Container(
+                                            width: 80,
+                                            margin: const EdgeInsets.only(
+                                              right: 10,
+                                            ),
+                                            child: Column(
+                                              children: [
+                                                ClipRRect(
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                  child: imgUrl.isEmpty
+                                                      ? _placeholderBox()
+                                                      : Image.network(
+                                                          imgUrl,
+                                                          height: 55,
+                                                          width: 70,
+                                                          fit: BoxFit.cover,
+                                                          errorBuilder:
+                                                              (_, __, ___) =>
+                                                                  _placeholderBox(),
+                                                        ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  (platData['name'] ?? 'Plat')
+                                                      .toString(),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Total : ${(commande['totalAmount'] ?? commande['total'] ?? 0).toString()} FCFA",
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      if (status == 'en_attente')
+                                        ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.redAccent,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 6,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.cancel,
+                                            size: 18,
+                                          ),
+                                          label: const Text(
+                                            "Annuler",
+                                            style: TextStyle(fontSize: 13),
+                                          ),
+                                          onPressed: () =>
+                                              _confirmerAnnulation(context, id),
+                                        ),
+                                    ],
+                                  ),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                            );
+                          },
+                        )),
           ),
         ],
       ),
@@ -281,20 +371,38 @@ class _CommandesScreenState extends State<CommandesScreen> {
     );
   }
 
+  Widget _placeholderBox({double width = 70, double height = 55}) {
+    return Container(
+      width: width,
+      height: height,
+      color: const Color(0xFFEFEFEF),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.image_not_supported,
+        color: Colors.black26,
+        size: 18,
+      ),
+    );
+  }
+
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'En cours':
+      case 'en_attente':
         return Colors.orange;
-      case 'Livrée':
+      case 'en_preparation':
+        return Colors.blueAccent;
+      case 'en_livraison':
+        return Colors.purple;
+      case 'livrée':
         return Colors.green;
-      case 'Annulée':
+      case 'annulée':
         return Colors.red;
       default:
         return Colors.grey;
     }
   }
 
-  void _confirmerAnnulation(BuildContext context, int id) {
+  void _confirmerAnnulation(BuildContext context, String id) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -308,16 +416,9 @@ class _CommandesScreenState extends State<CommandesScreen> {
             child: const Text("Non"),
           ),
           ElevatedButton(
-            onPressed: () {
-              setState(() {
-                final index = commandes.indexWhere(
-                  (commande) => commande['id'] == id,
-                );
-                if (index != -1) {
-                  commandes[index]['statut'] = 'Annulée';
-                }
-              });
+            onPressed: () async {
               Navigator.pop(ctx);
+              await _annuler(id);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             child: const Text("Oui, annuler"),

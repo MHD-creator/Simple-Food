@@ -29,7 +29,7 @@ class AuthService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         // Stocker le token
         await ApiService.setToken(responseData['data']['token']);
-        
+
         return {
           'success': true,
           'user': User.fromJson(responseData['data']['user']),
@@ -66,7 +66,7 @@ class AuthService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         // Stocker le token
         await ApiService.setToken(responseData['data']['token']);
-        
+
         return {
           'success': true,
           'user': User.fromJson(responseData['data']['user']),
@@ -95,14 +95,13 @@ class AuthService {
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {
-          'success': true,
-          'user': User.fromJson(responseData['data']),
-        };
+        return {'success': true, 'user': User.fromJson(responseData['data'])};
       } else {
         return {
           'success': false,
-          'message': responseData['message'] ?? 'Erreur lors de la récupération du profil',
+          'message':
+              responseData['message'] ??
+              'Erreur lors de la récupération du profil',
         };
       }
     } catch (e) {
@@ -121,5 +120,33 @@ class AuthService {
   static Future<bool> isLoggedIn() async {
     await ApiService.init();
     return ApiService.isAuthenticated;
+  }
+
+  static Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmNewPassword,
+  }) async {
+    try {
+      final res = await ApiService.put('/auth/change-password', {
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+        'confirmNewPassword': confirmNewPassword,
+      });
+      final data = jsonDecode(res.body);
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Mot de passe mis à jour',
+        };
+      }
+      return {'success': false, 'message': data['message'] ?? 'Erreur'};
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Erreur réseau',
+        'error': e.toString(),
+      };
+    }
   }
 }

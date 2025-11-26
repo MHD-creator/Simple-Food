@@ -5,9 +5,19 @@ export interface IPlat extends Document {
     price: number;
     category: string;
     image?: string;
+    images?: string[];
+    prices?: {
+        label: string;
+        price: number;
+    }[];
     cuisinier: mongoose.Types.ObjectId;
     ingredients: string[];
     available: boolean;
+    stock: number;
+    promoActive?: boolean;
+    promoPercent?: number;
+    promoStart?: Date;
+    promoEnd?: Date;
     preparationTime: number;
     rating: number;
     ratingCount: number;

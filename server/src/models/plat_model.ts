@@ -6,9 +6,16 @@ export interface IPlat extends Document {
   price: number;
   category: string;
   image?: string;
+  images?: string[];
+  prices?: { label: string; price: number }[];
   cuisinier: mongoose.Types.ObjectId;
   ingredients: string[];
   available: boolean;
+  stock: number;
+  promoActive?: boolean;
+  promoPercent?: number;
+  promoStart?: Date;
+  promoEnd?: Date;
   preparationTime: number; // en minutes
   rating: number;
   ratingCount: number;
@@ -41,6 +48,14 @@ const platSchema = new Schema<IPlat>({
   image: {
     type: String
   },
+  images: [{
+    type: String,
+    trim: true,
+  }],
+  prices: [{
+    label: { type: String, trim: true },
+    price: { type: Number, min: 0 }
+  }],
   cuisinier: {
     type: Schema.Types.ObjectId,
     ref: 'User',
@@ -54,6 +69,23 @@ const platSchema = new Schema<IPlat>({
     type: Boolean,
     default: true
   },
+  stock: {
+    type: Number,
+    default: 0,
+    min: [0, "Le stock ne peut pas être négatif"]
+  },
+  promoActive: {
+    type: Boolean,
+    default: false,
+  },
+  promoPercent: {
+    type: Number,
+    min: [0, 'La remise ne peut pas être négative'],
+    max: [90, 'La remise ne peut pas dépasser 90%'],
+    default: 0,
+  },
+  promoStart: { type: Date },
+  promoEnd: { type: Date },
   preparationTime: {
     type: Number,
     required: [true, "Le temps de préparation est obligatoire"],

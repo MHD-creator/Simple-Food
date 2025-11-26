@@ -19,12 +19,58 @@ const generateToken = (user: IUser): string => {
     telephone: user.telephone,
     role: user.role
   };
+
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     throw new Error('JWT_SECRET environment variable is not defined');
   }
   
   return jwt.sign(payload, secret, { expiresIn: '7d' });
+};
+
+export const changePasswordValidation = [
+  body('currentPassword')
+    .notEmpty()
+    .withMessage('Le mot de passe actuel est requis'),
+  body('newPassword')
+    .isLength({ min: 6 })
+    .withMessage('Le nouveau mot de passe doit contenir au moins 6 caractères'),
+  body('confirmNewPassword')
+    .custom((value, { req }) => value === req.body.newPassword)
+    .withMessage('La confirmation ne correspond pas au nouveau mot de passe'),
+];
+
+export const changePassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ success: false, message: 'Erreurs de validation', errors: errors.array() });
+      return;
+    }
+
+    const userId = (req as any).user.userId;
+    const { currentPassword, newPassword } = req.body as { currentPassword: string; newPassword: string };
+
+    const user = await User.findById(userId).select('+password');
+    if (!user) {
+      res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+      return;
+    }
+
+    const ok = await user.comparePassword(currentPassword);
+    if (!ok) {
+      res.status(400).json({ success: false, message: 'Mot de passe actuel incorrect' });
+      return;
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Mot de passe mis à jour' });
+  } catch (error) {
+    console.error('Erreur lors du changement de mot de passe:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
 };
 
 export const updateProfile = async (req: Request, res: Response): Promise<void> => {

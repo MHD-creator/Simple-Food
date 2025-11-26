@@ -51,21 +51,38 @@ export const createCommande = async (req, res) => {
             });
             return;
         }
-        // Calculer le montant total
+        // Vérifier le stock et calculer le total
         let totalAmount = 0;
+        const insuffisants = [];
         const commandePlats = plats.map((p) => {
             const plat = platsFound.find((pl) => pl._id.toString() === p.plat);
             if (!plat) {
                 throw new Error('Plat non trouvé');
             }
-            const subtotal = plat.price * p.quantity;
+            const requestedQty = Number(p.quantity) || 0;
+            const availableQty = Number(plat.stock ?? 0);
+            if (requestedQty < 1) {
+                insuffisants.push({ plat: p.plat, requested: requestedQty, available: availableQty });
+            }
+            if (availableQty < requestedQty) {
+                insuffisants.push({ plat: p.plat, requested: requestedQty, available: availableQty });
+            }
+            const subtotal = plat.price * requestedQty;
             totalAmount += subtotal;
             return {
                 plat: p.plat,
-                quantity: p.quantity,
+                quantity: requestedQty,
                 price: plat.price
             };
         });
+        if (insuffisants.length > 0) {
+            res.status(400).json({
+                success: false,
+                message: 'Stock insuffisant pour certains plats',
+                details: insuffisants
+            });
+            return;
+        }
         // Vérifier que tous les plats sont du même cuisinier
         const cuisiniers = new Set(platsFound.map(p => p.cuisinier.toString()));
         if (cuisiniers.size > 1) {
@@ -91,6 +108,16 @@ export const createCommande = async (req, res) => {
             estimatedDeliveryTime
         });
         await commande.save();
+        // Décrémenter le stock des plats commandés et mettre à jour la disponibilité si nécessaire
+        for (const item of commandePlats) {
+            const platDoc = platsFound.find((pl) => pl._id.toString() === item.plat);
+            if (!platDoc)
+                continue;
+            const newStock = Math.max(0, Number(platDoc.stock ?? 0) - Number(item.quantity));
+            await Plat.findByIdAndUpdate(item.plat, {
+                $set: { stock: newStock, available: newStock > 0 ? platDoc.available : false }
+            }, { new: false });
+        }
         // Populer les informations
         await commande.populate([
             { path: 'client', select: 'name telephone' },
@@ -233,6 +260,12 @@ export const updateCommandeStatus = async (req, res) => {
             });
             return;
         }
+        // Interdire de modifier une commande déjà annulée
+        if (commande.status === 'annulée' && status !== 'annulée') {
+            res.status(400).json({ success: false, message: 'Impossible de modifier une commande annulée' });
+            return;
+        }
+        const previousStatus = commande.status;
         // Mettre à jour le statut et éventuellement la date de livraison
         const updateData = { status };
         if (status === 'livrée') {
@@ -243,6 +276,20 @@ export const updateCommandeStatus = async (req, res) => {
             { path: 'cuisinier', select: 'name telephone address' },
             { path: 'plats.plat', select: 'name price image' }
         ]);
+        // Si on vient d'annuler (et que ce n'était pas déjà annulé), alors restaurer le stock
+        if (status === 'annulée' && previousStatus !== 'annulée') {
+            try {
+                for (const item of commande.plats) {
+                    await Plat.findByIdAndUpdate(item.plat, {
+                        $inc: { stock: Number(item.quantity) },
+                        $set: { available: true },
+                    }, { new: false });
+                }
+            }
+            catch (e) {
+                console.error('Erreur lors de la restauration du stock:', e);
+            }
+        }
         res.status(200).json({
             success: true,
             message: 'Statut de la commande mis à jour avec succès',
@@ -271,12 +318,36 @@ export const cancelCommandeByClient = async (req, res) => {
             res.status(403).json({ success: false, message: 'Accès non autorisé' });
             return;
         }
-        if (commande.status !== 'en_attente') {
+        // Utiliser une variable locale pour éviter un narrowing contradictoire
+        const st = commande.status;
+        // Si déjà annulée, ne pas retraiter
+        if (st === 'annulée') {
+            await commande.populate([
+                { path: 'client', select: 'name telephone' },
+                { path: 'cuisinier', select: 'name telephone address' },
+                { path: 'plats.plat', select: 'name price image' }
+            ]);
+            res.status(200).json({ success: true, message: 'Commande déjà annulée', data: commande });
+            return;
+        }
+        if (st !== 'en_attente') {
             res.status(400).json({ success: false, message: 'Seules les commandes en attente peuvent être annulées' });
             return;
         }
         commande.status = 'annulée';
         await commande.save();
+        // Restaurer le stock des plats
+        try {
+            for (const item of commande.plats) {
+                await Plat.findByIdAndUpdate(item.plat, {
+                    $inc: { stock: Number(item.quantity) },
+                    $set: { available: true },
+                }, { new: false });
+            }
+        }
+        catch (e) {
+            console.error('Erreur lors de la restauration du stock (annulation client):', e);
+        }
         await commande.populate([
             { path: 'client', select: 'name telephone' },
             { path: 'cuisinier', select: 'name telephone address' },

@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:simple_food/presentations/screens/cookers_screen.dart/food_list_screen.dart';
+import 'package:simple_food/presentations/screens/cookers_screen.dart/orders_screen.dart';
+import 'package:simple_food/presentations/screens/cookers_screen.dart/profile_screen.dart';
+import 'package:simple_food/services/api_service.dart';
+import 'package:simple_food/presentations/screens/auth/login_screen.dart';
+import 'package:simple_food/services/commande_service.dart';
+import 'package:simple_food/services/plat_service.dart';
+import 'package:simple_food/models/plat.dart';
 
 class CookerDashboard extends StatelessWidget {
   const CookerDashboard({super.key});
@@ -35,137 +42,253 @@ class CookerDashboard extends StatelessWidget {
   }
 }
 
-class _DashboardContent extends StatelessWidget {
+class _DashboardContent extends StatefulWidget {
   const _DashboardContent();
 
   @override
+  State<_DashboardContent> createState() => _DashboardContentState();
+}
+
+class _DashboardContentState extends State<_DashboardContent> {
+  bool _loading = false;
+  String? _error;
+  int ordersToday = 0;
+  int revenueToday = 0;
+  int activePlats = 0;
+  double avgRating = 0.0;
+  List<Map<String, dynamic>> recentOrders = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      // Commandes (on récupère une page large pour agréger côté client)
+      final cmdRes = await CommandeService.getCommandes(page: 1, limit: 100);
+      if (cmdRes['success'] == true) {
+        final List list = (cmdRes['data'] as List);
+        final now = DateTime.now();
+        int cnt = 0;
+        int rev = 0;
+        for (final c in list) {
+          final m = (c as Map);
+          final createdAt = DateTime.tryParse(
+            (m['createdAt'] ?? '').toString(),
+          );
+          if (createdAt != null && _isSameDay(createdAt.toLocal(), now)) {
+            cnt += 1;
+            final total = (m['totalAmount'] ?? m['total'] ?? 0);
+            if (total is num) rev += total.toInt();
+          }
+        }
+        ordersToday = cnt;
+        revenueToday = rev;
+
+        // Compute recent orders (last 5 by createdAt desc)
+        final sorted =
+            List<Map<String, dynamic>>.from(
+              list.map((e) => (e as Map).cast<String, dynamic>()),
+            )..sort((a, b) {
+              final ad =
+                  DateTime.tryParse((a['createdAt'] ?? '').toString()) ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              final bd =
+                  DateTime.tryParse((b['createdAt'] ?? '').toString()) ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              return bd.compareTo(ad);
+            });
+        recentOrders = sorted.take(5).toList();
+      } else {
+        _error = cmdRes['message']?.toString();
+      }
+
+      // Plats
+      final platsRes = await PlatService.getMyPlats(page: 1, limit: 100);
+      if (platsRes['success'] == true) {
+        final List<Plat> plats = (platsRes['data'] as List<Plat>);
+        activePlats = plats.where((p) => p.available == true).length;
+        if (plats.isNotEmpty) {
+          final ratings = plats.map((p) => p.rating ?? 0.0).toList();
+          avgRating = ratings.isEmpty
+              ? 0
+              : ratings.reduce((a, b) => a + b) / ratings.length;
+        } else {
+          avgRating = 0;
+        }
+      } else {
+        _error ??= platsRes['message']?.toString();
+      }
+    } catch (e) {
+      _error = e.toString();
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Résumé rapide
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              _StatCard(
-                title: 'Commandes du jour',
-                value: '12',
-                icon: Icons.receipt_long,
-                color: Colors.orangeAccent,
-              ),
-              _StatCard(
-                title: 'Revenu du jour',
-                value: '45.000 F',
-                icon: Icons.attach_money,
-                color: Colors.green,
-              ),
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_loading) const LinearProgressIndicator(minHeight: 2),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!, style: const TextStyle(color: Colors.red)),
+              const SizedBox(height: 8),
             ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              _StatCard(
-                title: 'Plats actifs',
-                value: '8',
-                icon: Icons.restaurant_menu,
-                color: Colors.teal,
-              ),
-              _StatCard(
-                title: 'Note moyenne',
-                value: '4.7 ★',
-                icon: Icons.star_rate,
-                color: Colors.amber,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-
-          // Tendance des commandes
-          const Text(
-            'Tendance des commandes (7 derniers jours)',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            height: 180,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 6,
-                  offset: Offset(0, 3),
+            // Résumé rapide
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _StatCard(
+                  title: 'Commandes du jour',
+                  value: ordersToday.toString(),
+                  icon: Icons.receipt_long,
+                  color: Colors.orangeAccent,
+                ),
+                _StatCard(
+                  title: 'Revenu du jour',
+                  value: '${revenueToday.toString()} F',
+                  icon: Icons.attach_money,
+                  color: Colors.green,
                 ),
               ],
             ),
-            padding: const EdgeInsets.all(12),
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(show: false),
-                borderData: FlBorderData(show: false),
-                titlesData: FlTitlesData(show: false),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: const [
-                      FlSpot(0, 3),
-                      FlSpot(1, 4.5),
-                      FlSpot(2, 3.8),
-                      FlSpot(3, 6),
-                      FlSpot(4, 7.2),
-                      FlSpot(5, 5),
-                      FlSpot(6, 6.8),
-                    ],
-                    isCurved: true,
-                    color: Colors.orangeAccent,
-                    barWidth: 3,
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: Colors.orangeAccent.withOpacity(0.2),
-                    ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _StatCard(
+                  title: 'Plats actifs',
+                  value: activePlats.toString(),
+                  icon: Icons.restaurant_menu,
+                  color: Colors.teal,
+                ),
+                _StatCard(
+                  title: 'Note moyenne',
+                  value: '${avgRating.toStringAsFixed(1)} ★',
+                  icon: Icons.star_rate,
+                  color: Colors.amber,
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            // Tendance des commandes
+            Container(
+              height: 180,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 6,
+                    offset: Offset(0, 3),
                   ),
                 ],
               ),
+              padding: const EdgeInsets.all(12),
+              child: LineChart(
+                LineChartData(
+                  gridData: FlGridData(show: false),
+                  borderData: FlBorderData(show: false),
+                  titlesData: FlTitlesData(show: false),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: const [
+                        FlSpot(0, 3),
+                        FlSpot(1, 4.5),
+                        FlSpot(2, 3.8),
+                        FlSpot(3, 6),
+                        FlSpot(4, 7.2),
+                        FlSpot(5, 5),
+                        FlSpot(6, 6.8),
+                      ],
+                      isCurved: true,
+                      color: Colors.orangeAccent,
+                      barWidth: 3,
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: Colors.orangeAccent.withOpacity(0.2),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          // Commandes récentes
-          const Text(
-            'Commandes récentes',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 10),
-          Column(
-            children: const [
-              _OrderTile(
-                client: 'Awa Traoré',
-                plat: 'Riz au poulet',
-                heure: '10:30',
-                statut: 'Livrée',
+            // Commandes récentes
+            const Text(
+              'Commandes récentes',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 10),
+            if (recentOrders.isEmpty)
+              const Text('Aucune commande récente')
+            else
+              Column(
+                children: recentOrders.map((c) {
+                  final id = (c['_id'] ?? c['id'] ?? '').toString();
+                  final client = (c['client'] as Map?)?.cast<String, dynamic>();
+                  final name = (client?['name'] ?? 'Client').toString();
+                  final status = (c['status'] ?? '').toString();
+                  final createdAt = (c['createdAt'] ?? '').toString();
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ListTile(
+                      leading: const CircleAvatar(
+                        child: Icon(Icons.receipt_long),
+                      ),
+                      title: Text(
+                        'Cmd #${id.isNotEmpty ? id.substring(0, 6) : '------'}',
+                      ),
+                      subtitle: Text('Client: $name • ${_fmtTime(createdAt)}'),
+                      trailing: Text(
+                        status,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
-              _OrderTile(
-                client: 'Issa Diallo',
-                plat: 'Bissap glacé',
-                heure: '11:15',
-                statut: 'En cours',
-              ),
-              _OrderTile(
-                client: 'Fatou Koné',
-                plat: 'Tô sauce gombo',
-                heure: '12:10',
-                statut: 'Préparation',
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  String _fmtTime(String iso) {
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return '';
+    final t = dt.toLocal();
+    final h = t.hour.toString().padLeft(2, '0');
+    final m = t.minute.toString().padLeft(2, '0');
+    return '$h:$m';
   }
 }
 
@@ -219,50 +342,7 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _OrderTile extends StatelessWidget {
-  final String client;
-  final String plat;
-  final String heure;
-  final String statut;
-
-  const _OrderTile({
-    required this.client,
-    required this.plat,
-    required this.heure,
-    required this.statut,
-  });
-
-  Color get statutColor {
-    switch (statut) {
-      case 'Livrée':
-        return Colors.green;
-      case 'En cours':
-        return Colors.orange;
-      default:
-        return Colors.blueGrey;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: statutColor.withOpacity(0.1),
-          child: Icon(Icons.fastfood, color: statutColor),
-        ),
-        title: Text(plat),
-        subtitle: Text('Client: $client • $heure'),
-        trailing: Text(
-          statut,
-          style: TextStyle(color: statutColor, fontWeight: FontWeight.bold),
-        ),
-      ),
-    );
-  }
-}
+// _OrderTile removed (now using recentOrders ListTiles directly)
 
 class _CuisinierDrawer extends StatelessWidget {
   const _CuisinierDrawer();
@@ -315,11 +395,38 @@ class _CuisinierDrawer extends StatelessWidget {
     return ListTile(
       leading: Icon(icon, color: color),
       title: Text(label, style: TextStyle(color: color)),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => FoodScreen()),
-        );
+      onTap: () async {
+        Navigator.pop(context); // fermer le drawer
+        if (label == 'Déconnexion') {
+          await ApiService.clearToken();
+          if (!context.mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false,
+          );
+          return;
+        }
+        if (label == 'Tableau de bord') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CookerDashboard()),
+          );
+        } else if (label == 'Mes Plats') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const FoodScreen()),
+          );
+        } else if (label == 'Mes Commandes') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CookerOrdersScreen()),
+          );
+        } else if (label == 'Profil') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CookerProfileScreen()),
+          );
+        }
       },
     );
   }

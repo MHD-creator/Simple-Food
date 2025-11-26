@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:simple_food/presentations/screens/client_screens/commandes_screen.dart';
 import 'package:simple_food/presentations/screens/client_screens/favorite_screen.dart';
 import 'package:simple_food/presentations/screens/client_screens/home_screen.dart';
+import 'package:simple_food/presentations/screens/client_screens/profile_screen.dart';
 
 Widget customNavBar(
   int currentIndex,
@@ -9,10 +10,10 @@ Widget customNavBar(
   BuildContext context,
 ) {
   List<Widget> screens = [
-    HomeScreenClient(),
-    CommandesScreen(),
-    FavorisScreen(),
-    HomeScreenClient(),
+    const HomeScreenClient(),
+    const CommandesScreen(),
+    const FavorisScreen(),
+    const ProfileScreen(),
   ];
   return BottomNavigationBar(
     backgroundColor: backgroundColor ?? Colors.green[200],
@@ -20,7 +21,7 @@ Widget customNavBar(
       BottomNavigationBarItem(icon: Icon(Icons.home), label: "Accueil"),
       BottomNavigationBarItem(icon: Icon(Icons.list_alt), label: "Commandes"),
       BottomNavigationBarItem(icon: Icon(Icons.favorite), label: "Favoris"),
-      BottomNavigationBarItem(icon: Icon(Icons.menu), label: "Menu"),
+      BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profil"),
     ],
     onTap: (value) {
       Navigator.pushReplacement(
