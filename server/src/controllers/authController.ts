@@ -22,7 +22,7 @@ const generateToken = (user: IUser): string => {
 
   const secret = process.env.JWT_SECRET;
   if (!secret) {
-    throw new Error('JWT_SECRET environment variable is not defined');
+    throw new Error('JWT_SECRET mal configuré dans les variables d\'environnement');
   }
   
   return jwt.sign(payload, secret, { expiresIn: '7d' });

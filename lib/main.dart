@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:simple_food/presentations/screens/auth/login_screen.dart';
 import 'package:simple_food/presentations/screens/client_screens/home_screen.dart';
+import 'package:simple_food/presentations/screens/cookers_screen.dart/index_screen.dart';
 import 'package:simple_food/presentations/screens/welcome_screen/onboarding_screen.dart';
 import 'package:simple_food/services/api_service.dart';
 import 'package:simple_food/services/cart_service.dart';
 import 'package:simple_food/services/cart_storage.dart';
 import 'package:simple_food/services/auth_service.dart';
+import 'package:simple_food/models/user.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,6 +52,7 @@ class _MyAppState extends State<MyApp> {
   bool _loading = true;
   bool _loggedIn = false;
   bool _hasSeenOnboarding = false;
+  String? _role;
 
   @override
   void initState() {
@@ -63,7 +66,10 @@ class _MyAppState extends State<MyApp> {
     if (_loggedIn) {
       final res = await AuthService.getProfile();
       if (mounted) {
-        if (res['success'] != true) {
+        if (res['success'] == true) {
+          final user = res['user'] as User;
+          _role = user.role;
+        } else {
           await ApiService.clearToken();
           _loggedIn = false;
         }
@@ -98,6 +104,8 @@ class _MyAppState extends State<MyApp> {
       // l’affichage d’un message invitant à se connecter.
       home: !_hasSeenOnboarding
           ? OnboardingScreen(onFinished: _completeOnboarding)
+          : _loggedIn && _role == 'cuisinier'
+          ? CookerDashboard()
           : const HomeScreenClient(),
     );
   }
