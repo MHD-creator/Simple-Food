@@ -3,6 +3,7 @@ import 'package:simple_food/services/api_service.dart';
 import 'package:simple_food/presentations/screens/auth/login_screen.dart';
 import 'package:simple_food/models/user.dart';
 import 'package:simple_food/services/auth_service.dart';
+import 'package:geolocator/geolocator.dart';
 
 class CookerProfileScreen extends StatefulWidget {
   const CookerProfileScreen({super.key});
@@ -15,11 +16,107 @@ class _CookerProfileScreenState extends State<CookerProfileScreen> {
   bool _loading = false;
   String? _error;
   User? _user;
+  final _baseFeeCtrl = TextEditingController();
+  final _feePerKmCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  Future<void> _updateDeliverySettings() async {
+    try {
+      final base = double.tryParse(_baseFeeCtrl.text.trim());
+      final perKm = double.tryParse(_feePerKmCtrl.text.trim());
+      if (base == null || base < 0 || perKm == null || perKm < 0) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Montants invalides')));
+        return;
+      }
+      final res = await ApiService.put('/auth/delivery-settings', {
+        'deliveryBaseFee': base,
+        'deliveryFeePerKm': perKm,
+      });
+      if (!mounted) return;
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Paramètres de livraison enregistrés.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur lors de la mise à jour des paramètres.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur: ${e.toString()}')));
+    }
+  }
+
+  Future<void> _updateKitchenLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Veuillez activer la localisation sur votre appareil.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permission de localisation refusée.')),
+        );
+        return;
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      final res = await ApiService.put('/auth/kitchen-location', {
+        'kitchenLat': pos.latitude,
+        'kitchenLng': pos.longitude,
+      });
+
+      if (!mounted) return;
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Localisation de la cuisine enregistrée.'),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur lors de la mise à jour de la localisation.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur: ${e.toString()}')));
+    }
   }
 
   Future<void> _load() async {
@@ -33,6 +130,12 @@ class _CookerProfileScreenState extends State<CookerProfileScreen> {
       if (res['success'] == true) {
         setState(() {
           _user = res['user'] as User;
+          _baseFeeCtrl.text = (_user!.deliveryBaseFee ?? 1000).toStringAsFixed(
+            0,
+          );
+          _feePerKmCtrl.text = (_user!.deliveryFeePerKm ?? 150).toStringAsFixed(
+            0,
+          );
           _loading = false;
         });
       } else {
@@ -243,37 +346,71 @@ class _CookerProfileScreenState extends State<CookerProfileScreen> {
                                     'Créé le',
                                     _user!.createdAt.toString(),
                                   ),
+                                const SizedBox(height: 12),
+                                const Text(
+                                  'Paramètres de livraison',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: _baseFeeCtrl,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Frais de base (FCFA)',
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: _feePerKmCtrl,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Tarif par km (FCFA/km)',
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                ElevatedButton.icon(
+                                  onPressed: _updateDeliverySettings,
+                                  icon: const Icon(Icons.delivery_dining),
+                                  label: const Text(
+                                    'Enregistrer les frais de livraison',
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                ElevatedButton.icon(
+                                  onPressed: _updateKitchenLocation,
+                                  icon: const Icon(Icons.location_on),
+                                  label: const Text(
+                                    'Enregistrer la localisation de ma cuisine',
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                ElevatedButton.icon(
+                                  onPressed: _logout,
+                                  icon: const Icon(Icons.logout),
+                                  label: const Text('Déconnexion'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.redAccent,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 24),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: _changePassword,
-                              icon: const Icon(Icons.lock),
-                              label: const Text('Changer le mot de passe'),
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            ElevatedButton.icon(
-                              onPressed: _logout,
-                              icon: const Icon(Icons.logout),
-                              label: const Text('Déconnexion'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.redAccent,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                              ),
-                            ),
-                          ],
                         ),
                       ],
                     ),

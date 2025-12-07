@@ -3,7 +3,29 @@ import { body, validationResult } from "express-validator";
 import type { ICommande } from "../models/commandes.js";
 import { Commande } from "../models/commandes.js";
 import { Plat } from "../models/plat_model.js";
+import { User } from "../models/users_model.js";
 import type { AuthRequest } from "../middleware/auth.js";
+
+const deg2rad = (deg: number): number => (deg * Math.PI) / 180;
+
+const haversineKm = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number => {
+  const R = 6371; // rayon de la Terre en km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) *
+      Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
 
 export const commandeValidation = [
   body('plats')
@@ -31,6 +53,14 @@ export const commandeValidation = [
     .withMessage('Le téléphone de livraison est obligatoire')
     .matches(/^\+?[0-9]{6,15}$/)
     .withMessage('Format de téléphone invalide'),
+  body('deliveryLat')
+    .optional()
+    .isFloat()
+    .withMessage('Latitude de livraison invalide'),
+  body('deliveryLng')
+    .optional()
+    .isFloat()
+    .withMessage('Longitude de livraison invalide'),
   
   body('notes')
     .optional()
@@ -50,7 +80,7 @@ export const createCommande = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const { plats, deliveryAddress, deliveryPhone, notes } = req.body;
+    const { plats, deliveryAddress, deliveryPhone, notes, deliveryLat, deliveryLng } = req.body;
     const clientId = (req as AuthRequest).user.userId;
 
     // Vérifier que tous les plats existent et sont disponibles
@@ -112,6 +142,49 @@ export const createCommande = async (req: Request, res: Response): Promise<void>
 
     const cuisinierId = platsFound[0]?.cuisinier;
 
+    // Vérifier que le cuisinier a bien configuré la géolocalisation de sa cuisine
+    const cuisinier = await User.findById(cuisinierId);
+    if (!cuisinier || cuisinier.kitchenLat == null || cuisinier.kitchenLng == null) {
+      res.status(400).json({
+        success: false,
+        message: "Le cuisinier n'a pas encore configuré la localisation de sa cuisine. La livraison n'est pas possible pour le moment."
+      });
+      return;
+    }
+
+    // Calculer les frais de livraison si la géolocalisation du client est disponible
+    let deliveryFee = 0;
+    if (
+      typeof deliveryLat === 'number' &&
+      typeof deliveryLng === 'number' &&
+      typeof cuisinier.kitchenLat === 'number' &&
+      typeof cuisinier.kitchenLng === 'number'
+    ) {
+      const distanceKm = haversineKm(
+        cuisinier.kitchenLat,
+        cuisinier.kitchenLng,
+        deliveryLat,
+        deliveryLng,
+      );
+
+      const baseFee = typeof (cuisinier as any).deliveryBaseFee === 'number'
+        ? (cuisinier as any).deliveryBaseFee
+        : 1000;
+      const feePerKm = typeof (cuisinier as any).deliveryFeePerKm === 'number'
+        ? (cuisinier as any).deliveryFeePerKm
+        : 150;
+
+      // Calcul simple : frais de base + tarif au km * distance
+      const rawFee = baseFee + feePerKm * distanceKm;
+
+      // Arrondir à l'entier supérieur pour éviter les décimales FCFA
+      deliveryFee = Math.ceil(rawFee);
+    }
+
+    if (deliveryFee > 0) {
+      totalAmount += deliveryFee;
+    }
+
     // Calculer le temps de livraison estimé (30 min + temps de préparation max)
     const maxPrepTime = Math.max(...platsFound.map(p => p.preparationTime || 0));
     const estimatedDeliveryTime = new Date();
@@ -125,7 +198,10 @@ export const createCommande = async (req: Request, res: Response): Promise<void>
       deliveryPhone,
       notes,
       cuisinier: cuisinierId,
-      estimatedDeliveryTime
+      estimatedDeliveryTime,
+      deliveryLat,
+      deliveryLng,
+      deliveryFee,
     });
 
     await commande.save();
@@ -180,6 +256,16 @@ export const getCommandes = async (req: Request, res: Response): Promise<void> =
       filter.client = userId;
     } else if (userRole === 'cuisinier') {
       filter.cuisinier = userId;
+    } else if (userRole === 'livreur') {
+      const livreur = await User.findById(userId);
+      if (!livreur || !livreur.cuisinier) {
+        res.status(403).json({
+          success: false,
+          message: "Aucun cuisinier associé au livreur."
+        });
+        return;
+      }
+      filter.cuisinier = livreur.cuisinier;
     }
     
     if (status) filter.status = status;
@@ -191,6 +277,7 @@ export const getCommandes = async (req: Request, res: Response): Promise<void> =
     const commandes = await Commande.find(filter)
       .populate('client', 'name telephone')
       .populate('cuisinier', 'name telephone address')
+      .populate('livreur', 'name telephone')
       .populate('plats.plat', 'name price image')
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -228,6 +315,7 @@ export const getCommandeById = async (req: Request, res: Response): Promise<void
     const commande = await Commande.findById(id)
       .populate('client', 'name telephone')
       .populate('cuisinier', 'name telephone address')
+      .populate('livreur', 'name telephone')
       .populate('plats.plat', 'name price image description');
 
     if (!commande) {
@@ -255,6 +343,17 @@ export const getCommandeById = async (req: Request, res: Response): Promise<void
       return;
     }
 
+    if (userRole === 'livreur') {
+      const livreur = await User.findById(userId);
+      if (!livreur || !livreur.cuisinier || commande.cuisinier._id.toString() !== (livreur.cuisinier as any).toString()) {
+        res.status(403).json({
+          success: false,
+          message: 'Accès non autorisé'
+        });
+        return;
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: commande
@@ -277,15 +376,6 @@ export const updateCommandeStatus = async (req: Request, res: Response): Promise
     const userId = (req as AuthRequest).user.userId;
     const userRole = (req as AuthRequest).user.role;
 
-    // Seuls les cuisiniers peuvent modifier le statut
-    if (userRole !== 'cuisinier') {
-      res.status(403).json({
-        success: false,
-        message: 'Seuls les cuisiniers peuvent modifier le statut des commandes'
-      });
-      return;
-    }
-
     const validStatuses = ['en_attente', 'en_preparation', 'en_livraison', 'livrée', 'annulée'];
     if (!validStatuses.includes(status)) {
       res.status(400).json({
@@ -295,7 +385,36 @@ export const updateCommandeStatus = async (req: Request, res: Response): Promise
       return;
     }
 
-    const commande = await Commande.findOne({ _id: id, cuisinier: userId });
+    let commande: ICommande | null = null;
+    if (userRole === 'cuisinier') {
+      commande = await Commande.findOne({ _id: id, cuisinier: userId });
+    } else if (userRole === 'livreur') {
+      const livreur = await User.findById(userId);
+      if (!livreur || !livreur.cuisinier) {
+        res.status(403).json({
+          success: false,
+          message: "Aucun cuisinier associé au livreur."
+        });
+        return;
+      }
+      // Le livreur ne peut manipuler que les commandes du cuisinier associé
+      commande = await Commande.findOne({ _id: id, cuisinier: livreur.cuisinier });
+      // Restreindre les statuts autorisés au livreur
+      const livreurAllowed = ['en_livraison', 'livrée'];
+      if (!livreurAllowed.includes(status)) {
+        res.status(403).json({
+          success: false,
+          message: 'Le livreur ne peut modifier le statut que vers en_livraison ou livrée'
+        });
+        return;
+      }
+    } else {
+      res.status(403).json({
+        success: false,
+        message: 'Rôle non autorisé pour la mise à jour du statut'
+      });
+      return;
+    }
     
     if (!commande) {
       res.status(404).json({

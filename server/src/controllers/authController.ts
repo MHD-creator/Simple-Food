@@ -24,8 +24,57 @@ const generateToken = (user: IUser): string => {
   if (!secret) {
     throw new Error('JWT_SECRET mal configuré dans les variables d\'environnement');
   }
-  
   return jwt.sign(payload, secret, { expiresIn: '7d' });
+};
+
+export const updateDeliverySettings = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user.userId;
+    const { deliveryBaseFee, deliveryFeePerKm } = req.body as {
+      deliveryBaseFee?: number;
+      deliveryFeePerKm?: number;
+    };
+
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+      return;
+    }
+
+    if (deliveryBaseFee !== undefined) {
+      if (typeof deliveryBaseFee !== 'number' || deliveryBaseFee < 0) {
+        res.status(400).json({ success: false, message: 'deliveryBaseFee invalide' });
+        return;
+      }
+      (user as any).deliveryBaseFee = deliveryBaseFee;
+    }
+
+    if (deliveryFeePerKm !== undefined) {
+      if (typeof deliveryFeePerKm !== 'number' || deliveryFeePerKm < 0) {
+        res.status(400).json({ success: false, message: 'deliveryFeePerKm invalide' });
+        return;
+      }
+      (user as any).deliveryFeePerKm = deliveryFeePerKm;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Paramètres de livraison mis à jour',
+      data: {
+        id: user._id,
+        name: user.name,
+        telephone: user.telephone,
+        role: user.role,
+        deliveryBaseFee: (user as any).deliveryBaseFee,
+        deliveryFeePerKm: (user as any).deliveryFeePerKm,
+      },
+    });
+  } catch (error: any) {
+    console.error('Erreur lors de la mise à jour des paramètres de livraison:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
 };
 
 export const changePasswordValidation = [
@@ -69,6 +118,50 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
     res.status(200).json({ success: true, message: 'Mot de passe mis à jour' });
   } catch (error) {
     console.error('Erreur lors du changement de mot de passe:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+};
+
+export const updateKitchenLocation = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user.userId;
+    const { kitchenLat, kitchenLng } = req.body as {
+      kitchenLat?: number;
+      kitchenLng?: number;
+    };
+
+    if (typeof kitchenLat !== 'number' || typeof kitchenLng !== 'number') {
+      res.status(400).json({
+        success: false,
+        message: 'kitchenLat et kitchenLng doivent être des nombres',
+      });
+      return;
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+      return;
+    }
+
+    user.kitchenLat = kitchenLat;
+    user.kitchenLng = kitchenLng;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Localisation de la cuisine mise à jour',
+      data: {
+        id: user._id,
+        name: user.name,
+        telephone: user.telephone,
+        role: user.role,
+        kitchenLat: user.kitchenLat,
+        kitchenLng: user.kitchenLng,
+      },
+    });
+  } catch (error: any) {
+    console.error('Erreur lors de la mise à jour de la localisation de la cuisine:', error);
     res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 };
@@ -216,6 +309,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       address: user.address,
       profileImage: user.profileImage,
       isActive: user.isActive,
+      deliveryBaseFee: (user as any).deliveryBaseFee,
+      deliveryFeePerKm: (user as any).deliveryFeePerKm,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
     };
@@ -297,6 +392,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       address: user.address,
       profileImage: user.profileImage,
       isActive: user.isActive,
+      deliveryBaseFee: (user as any).deliveryBaseFee,
+      deliveryFeePerKm: (user as any).deliveryFeePerKm,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
     };

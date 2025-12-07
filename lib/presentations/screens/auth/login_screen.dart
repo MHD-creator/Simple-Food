@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:simple_food/presentations/screens/auth/preinscription_screen.dart';
 import 'package:simple_food/presentations/screens/client_screens/home_screen.dart';
 import 'package:simple_food/presentations/screens/cookers_screen.dart/index_screen.dart';
+import 'package:simple_food/presentations/screens/livreur_screen.dart/index_screen.dart';
 import 'package:simple_food/services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -54,6 +55,11 @@ class _LoginScreenState extends State<LoginScreen> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => CookerDashboard()),
+            );
+          } else if (user.role == 'livreur') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => LivreurDashboard()),
             );
           } else {
             Navigator.pushReplacement(

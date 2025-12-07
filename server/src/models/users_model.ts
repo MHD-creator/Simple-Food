@@ -5,7 +5,7 @@ export interface IUser extends Document {
   name: string;
   telephone: string;
   password: string;
-  role: 'client' | 'cuisinier' | 'admin';
+  role: 'client' | 'cuisinier' | 'livreur' | 'admin';
   age?: number;
   email?: string;
   address?: string;
@@ -14,6 +14,11 @@ export interface IUser extends Document {
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
+  cuisinier?: mongoose.Types.ObjectId;
+  kitchenLat?: number;
+  kitchenLng?: number;
+  deliveryBaseFee?: number;
+  deliveryFeePerKm?: number;
 }
 
 const userSchema = new Schema<IUser>({
@@ -38,7 +43,7 @@ const userSchema = new Schema<IUser>({
   },
   role: {
     type: String,
-    enum: ['client', 'cuisinier', 'admin'],
+    enum: ['client', 'cuisinier', 'livreur', 'admin'],
     default: 'client'
   },
   age: {
@@ -57,6 +62,24 @@ const userSchema = new Schema<IUser>({
   },
   profileImage: {
     type: String
+  },
+  cuisinier: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+  },
+  kitchenLat: {
+    type: Number,
+  },
+  kitchenLng: {
+    type: Number,
+  },
+  deliveryBaseFee: {
+    type: Number,
+    default: 1000,
+  },
+  deliveryFeePerKm: {
+    type: Number,
+    default: 150,
   },
   isActive: {
     type: Boolean,

@@ -3,7 +3,7 @@ export interface IUser extends Document {
     name: string;
     telephone: string;
     password: string;
-    role: 'client' | 'cuisinier' | 'admin';
+    role: 'client' | 'cuisinier' | 'livreur' | 'admin';
     age?: number;
     email?: string;
     address?: string;
@@ -12,6 +12,11 @@ export interface IUser extends Document {
     createdAt: Date;
     updatedAt: Date;
     comparePassword(candidatePassword: string): Promise<boolean>;
+    cuisinier?: mongoose.Types.ObjectId;
+    kitchenLat?: number;
+    kitchenLng?: number;
+    deliveryBaseFee?: number;
+    deliveryFeePerKm?: number;
 }
 export declare const User: mongoose.Model<IUser, {}, {}, {}, mongoose.Document<unknown, {}, IUser, {}, {}> & IUser & Required<{
     _id: unknown;

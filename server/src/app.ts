@@ -7,6 +7,7 @@ import authRoutes from "./routes/authRoutes.js";
 import platRoutes from "./routes/platRoutes.js";
 import commandeRoutes from "./routes/commandeRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
+import livreurRoutes from "./routes/livreurRoutes.js";
 
 // Charger les variables d'environnement
 dotenv.config();
@@ -31,6 +32,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/plats', platRoutes);
 app.use('/api/commandes', commandeRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/api/livreurs', livreurRoutes);
 
 // Fichiers statiques (images uploadées)
 app.use('/uploads', express.static(path.join(process.cwd(), 'server', 'uploads')));

@@ -5,6 +5,7 @@ import 'package:simple_food/presentations/screens/client_screens/widgets/custom_
 import 'package:simple_food/services/commande_service.dart';
 import 'package:simple_food/services/api_service.dart';
 import 'package:simple_food/presentations/screens/auth/login_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class CommandesScreen extends StatefulWidget {
   const CommandesScreen({super.key});
@@ -32,6 +33,13 @@ class _CommandesScreenState extends State<CommandesScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  Future<void> _callPhone(String phone) async {
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
   }
 
   Future<void> _load() async {
@@ -226,14 +234,26 @@ class _CommandesScreenState extends State<CommandesScreen> {
                                             .toString();
                                     final plats =
                                         (commande['plats'] as List?) ?? [];
+                                    final livreur =
+                                        (commande['livreur'] as Map?)
+                                            ?.cast<String, dynamic>();
+                                    final livreurPhone =
+                                        (livreur?['telephone'] ?? '')
+                                            .toString();
                                     final createdAt =
                                         (commande['createdAt'] ?? '')
                                             .toString();
-                                    final total =
+                                    final totalNum =
                                         (commande['totalAmount'] ??
                                                 commande['total'] ??
                                                 0)
-                                            .toString();
+                                            as num;
+                                    final deliveryFee =
+                                        (commande['deliveryFee'] ?? 0) as num;
+                                    final subtotal = deliveryFee > 0
+                                        ? (totalNum - deliveryFee)
+                                        : totalNum;
+                                    final total = totalNum.toInt().toString();
 
                                     return InkWell(
                                       borderRadius: BorderRadius.circular(12),
@@ -496,12 +516,33 @@ class _CommandesScreenState extends State<CommandesScreen> {
                                                     MainAxisAlignment
                                                         .spaceBetween,
                                                 children: [
-                                                  Text(
-                                                    "Total : $total FCFA",
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
+                                                  Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        "Sous-total : ${subtotal.toInt()} FCFA",
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                      if (deliveryFee > 0)
+                                                        Text(
+                                                          "Livraison : ${deliveryFee.toInt()} FCFA",
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 12,
+                                                              ),
+                                                        ),
+                                                      Text(
+                                                        "Total : $total FCFA",
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
                                                   if (status == 'en_attente')
                                                     ElevatedButton.icon(
@@ -535,6 +576,54 @@ class _CommandesScreenState extends State<CommandesScreen> {
                                                             context,
                                                             id,
                                                           ),
+                                                    )
+                                                  else if (status ==
+                                                          'en_livraison' &&
+                                                      livreurPhone.isNotEmpty)
+                                                    Row(
+                                                      children: [
+                                                        IconButton(
+                                                          icon: const Icon(
+                                                            Icons.phone,
+                                                            color: Colors.green,
+                                                          ),
+                                                          onPressed: () =>
+                                                              _callPhone(
+                                                                livreurPhone,
+                                                              ),
+                                                        ),
+                                                        TextButton(
+                                                          onPressed: () async {
+                                                            final res =
+                                                                await CommandeService.updateStatus(
+                                                                  id: id,
+                                                                  status:
+                                                                      'livrée',
+                                                                );
+                                                            if (!mounted)
+                                                              return;
+                                                            if (res['success'] ==
+                                                                true) {
+                                                              await _load();
+                                                            } else {
+                                                              ScaffoldMessenger.of(
+                                                                context,
+                                                              ).showSnackBar(
+                                                                SnackBar(
+                                                                  content: Text(
+                                                                    res['message']
+                                                                            ?.toString() ??
+                                                                        'Erreur',
+                                                                  ),
+                                                                ),
+                                                              );
+                                                            }
+                                                          },
+                                                          child: const Text(
+                                                            'Valider la réception',
+                                                          ),
+                                                        ),
+                                                      ],
                                                     ),
                                                 ],
                                               ),
@@ -565,12 +654,21 @@ class _CommandesScreenState extends State<CommandesScreen> {
             .toString();
         final id = (commande['_id'] ?? commande['id'] ?? '').toString();
         final plats = (commande['plats'] as List?) ?? [];
-        final total = (commande['totalAmount'] ?? commande['total'] ?? 0)
-            .toString();
+        final totalNum =
+            (commande['totalAmount'] ?? commande['total'] ?? 0) as num;
+        final deliveryFee = (commande['deliveryFee'] ?? 0) as num;
+        final subtotal = deliveryFee > 0 ? (totalNum - deliveryFee) : totalNum;
+        final total = totalNum.toInt().toString();
         final address = (commande['deliveryAddress'] ?? '').toString();
         final phone = (commande['deliveryPhone'] ?? '').toString();
         final notes = (commande['notes'] ?? '').toString();
         final createdAt = (commande['createdAt'] ?? '').toString();
+        final dLat = commande['deliveryLat'];
+        final dLng = commande['deliveryLng'];
+        final paymentMethod = (commande['paymentMethod'] ?? '').toString();
+        final paymentStatus = (commande['paymentStatus'] ?? '').toString();
+        final paymentInfo = (commande['paymentInfo'] as Map?)
+            ?.cast<String, dynamic>();
 
         return DraggableScrollableSheet(
           expand: false,
@@ -624,6 +722,10 @@ class _CommandesScreenState extends State<CommandesScreen> {
                 ),
                 const SizedBox(height: 4),
                 if (address.isNotEmpty) Text('Adresse : $address'),
+                if (dLat is num && dLng is num)
+                  Text(
+                    'Localisation : Lat:${dLat.toStringAsFixed(5)}, Lng:${dLng.toStringAsFixed(5)}',
+                  ),
                 if (phone.isNotEmpty) Text('Téléphone : $phone'),
                 if (notes.isNotEmpty) ...[
                   const SizedBox(height: 4),
@@ -646,9 +748,46 @@ class _CommandesScreenState extends State<CommandesScreen> {
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(name),
-                    subtitle: Text('Quantité : $q • Prix : $price FCFA'),
+                    subtitle: Text('Quantité: $q • Prix: $price FCFA'),
                   );
                 }).toList(),
+                const SizedBox(height: 12),
+                Text(
+                  'Sous-total : ${subtotal.toInt()} FCFA',
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                if (deliveryFee > 0)
+                  Text(
+                    'Frais de livraison : ${deliveryFee.toInt()} FCFA',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                const SizedBox(height: 4),
+                Text(
+                  'Total : $total FCFA',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const Divider(height: 24),
+                if (paymentMethod.isNotEmpty || paymentStatus.isNotEmpty)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Paiement',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      if (paymentMethod.isNotEmpty)
+                        Text('Méthode : $paymentMethod'),
+                      if (paymentStatus.isNotEmpty)
+                        Text('Statut : $paymentStatus'),
+                      if (paymentInfo != null) ...[
+                        if (paymentInfo['phone'] != null)
+                          Text('Téléphone paiement : ${paymentInfo['phone']}'),
+                        if (paymentInfo['provider'] != null)
+                          Text('Opérateur : ${paymentInfo['provider']}'),
+                      ],
+                    ],
+                  ),
                 const Divider(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

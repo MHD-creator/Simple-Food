@@ -22,7 +22,7 @@ const userSchema = new Schema({
     },
     role: {
         type: String,
-        enum: ['client', 'cuisinier', 'admin'],
+        enum: ['client', 'cuisinier', 'livreur', 'admin'],
         default: 'client'
     },
     age: {
@@ -41,6 +41,24 @@ const userSchema = new Schema({
     },
     profileImage: {
         type: String
+    },
+    cuisinier: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+    },
+    kitchenLat: {
+        type: Number,
+    },
+    kitchenLng: {
+        type: Number,
+    },
+    deliveryBaseFee: {
+        type: Number,
+        default: 1000,
+    },
+    deliveryFeePerKm: {
+        type: Number,
+        default: 150,
     },
     isActive: {
         type: Boolean,

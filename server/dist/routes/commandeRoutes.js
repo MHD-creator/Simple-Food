@@ -10,22 +10,22 @@ const router = Router();
 router.post('/', authenticate, authorize('client'), commandeValidation, createCommande);
 /**
  * @route   GET /api/commandes
- * @desc    Récupérer les commandes (client ou cuisinier)
- * @access  Private (client, cuisinier)
+ * @desc    Récupérer les commandes (client, cuisinier ou livreur)
+ * @access  Private (client, cuisinier, livreur)
  */
-router.get('/', authenticate, authorize('client', 'cuisinier'), getCommandes);
+router.get('/', authenticate, authorize('client', 'cuisinier', 'livreur'), getCommandes);
 /**
  * @route   GET /api/commandes/:id
  * @desc    Récupérer une commande par son ID
- * @access  Private (client, cuisinier)
+ * @access  Private (client, cuisinier, livreur)
  */
-router.get('/:id', authenticate, authorize('client', 'cuisinier'), getCommandeById);
+router.get('/:id', authenticate, authorize('client', 'cuisinier', 'livreur'), getCommandeById);
 /**
  * @route   PUT /api/commandes/:id/status
- * @desc    Mettre à jour le statut d'une commande (cuisinier uniquement)
- * @access  Private (cuisinier)
+ * @desc    Mettre à jour le statut d'une commande (cuisinier ou livreur)
+ * @access  Private (cuisinier, livreur)
  */
-router.put('/:id/status', authenticate, authorize('cuisinier'), updateCommandeStatus);
+router.put('/:id/status', authenticate, authorize('cuisinier', 'livreur'), updateCommandeStatus);
 /**
  * @route   PUT /api/commandes/:id/cancel
  * @desc    Annuler une commande (client uniquement, statut en_attente)

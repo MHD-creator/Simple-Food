@@ -3,7 +3,15 @@ import 'package:simple_food/services/commande_service.dart';
 
 class CookerOrderDetailScreen extends StatefulWidget {
   final String id;
-  const CookerOrderDetailScreen({super.key, required this.id});
+
+  /// Quand utilisé côté livreur, on masque les contrôles et infos dédiés au cuisinier.
+  final bool forLivreur;
+
+  const CookerOrderDetailScreen({
+    super.key,
+    required this.id,
+    this.forLivreur = false,
+  });
 
   @override
   State<CookerOrderDetailScreen> createState() =>
@@ -119,26 +127,35 @@ class _CookerOrderDetailScreenState extends State<CookerOrderDetailScreen> {
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              _statusTimeline(
-                                (commande!['status'] ?? '').toString(),
-                              ),
-                              const SizedBox(height: 8),
-                              if (commande!['createdAt'] != null)
-                                Text(
-                                  'Créée le: ${commande!['createdAt']}',
-                                  style: const TextStyle(color: Colors.black54),
+                              if (!widget.forLivreur) ...[
+                                _statusTimeline(
+                                  (commande!['status'] ?? '').toString(),
                                 ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Client: ${(commande!['client']?['name'] ?? 'Client').toString()}',
-                              ),
-                              Text(
-                                'Téléphone: ${(commande!['client']?['telephone'] ?? '').toString()}',
-                              ),
-                              const SizedBox(height: 8),
+                                const SizedBox(height: 8),
+                                if (commande!['createdAt'] != null)
+                                  Text(
+                                    'Créée le: ${commande!['createdAt']}',
+                                    style: const TextStyle(
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Client: ${(commande!['client']?['name'] ?? 'Client').toString()}',
+                                ),
+                                Text(
+                                  'Téléphone: ${(commande!['client']?['telephone'] ?? '').toString()}',
+                                ),
+                                const SizedBox(height: 8),
+                              ],
                               Text(
                                 'Adresse livraison: ${(commande!['deliveryAddress'] ?? '').toString()}',
                               ),
+                              if (commande!['deliveryLat'] != null &&
+                                  commande!['deliveryLng'] != null)
+                                Text(
+                                  'Localisation: Lat:${(commande!['deliveryLat'] as num).toStringAsFixed(5)}, Lng:${(commande!['deliveryLng'] as num).toStringAsFixed(5)}',
+                                ),
                               Text(
                                 'Téléphone livraison: ${(commande!['deliveryPhone'] ?? '').toString()}',
                               ),
@@ -148,6 +165,51 @@ class _CookerOrderDetailScreenState extends State<CookerOrderDetailScreen> {
                                   padding: const EdgeInsets.only(top: 8.0),
                                   child: Text('Notes: ${commande!['notes']}'),
                                 ),
+                              const SizedBox(height: 8),
+                              Builder(
+                                builder: (context) {
+                                  final paymentMethod =
+                                      (commande!['paymentMethod'] ?? '')
+                                          .toString();
+                                  final paymentStatus =
+                                      (commande!['paymentStatus'] ?? '')
+                                          .toString();
+                                  final paymentInfo =
+                                      (commande!['paymentInfo'] as Map?)
+                                          ?.cast<String, dynamic>();
+                                  if (paymentMethod.isEmpty &&
+                                      paymentStatus.isEmpty &&
+                                      paymentInfo == null) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Paiement',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      if (paymentMethod.isNotEmpty)
+                                        Text('Méthode : $paymentMethod'),
+                                      if (paymentStatus.isNotEmpty)
+                                        Text('Statut : $paymentStatus'),
+                                      if (paymentInfo != null) ...[
+                                        if (paymentInfo['phone'] != null)
+                                          Text(
+                                            'Téléphone paiement : ${paymentInfo['phone']}',
+                                          ),
+                                        if (paymentInfo['provider'] != null)
+                                          Text(
+                                            'Opérateur : ${paymentInfo['provider']}',
+                                          ),
+                                      ],
+                                    ],
+                                  );
+                                },
+                              ),
                               const Divider(height: 24),
                               const Text(
                                 'Plats',
@@ -172,24 +234,48 @@ class _CookerOrderDetailScreenState extends State<CookerOrderDetailScreen> {
                                 );
                               }).toList(),
                               const Divider(height: 24),
-                              Text(
-                                'Total: ${(commande!['totalAmount'] ?? 0).toString()} F',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
+                              Builder(
+                                builder: (context) {
+                                  final totalNum =
+                                      (commande!['totalAmount'] ?? 0) as num;
+                                  final deliveryFee =
+                                      (commande!['deliveryFee'] ?? 0) as num;
+                                  final subtotal = deliveryFee > 0
+                                      ? (totalNum - deliveryFee)
+                                      : totalNum;
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text('Sous-total: ${subtotal.toInt()} F'),
+                                      if (deliveryFee > 0)
+                                        Text(
+                                          'Livraison: ${deliveryFee.toInt()} F',
+                                        ),
+                                      Text(
+                                        'Total: ${totalNum.toInt()} F',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                              if (!widget.forLivreur) ...[
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Actions statut',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'Actions statut',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                children: _allowedStatuses(
-                                  (commande!['status'] ?? '').toString(),
-                                ).map((s) => _statusBtn(s)).toList(),
-                              ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  children: _allowedStatuses(
+                                    (commande!['status'] ?? '').toString(),
+                                  ).map((s) => _statusBtn(s)).toList(),
+                                ),
+                              ],
                             ],
                           ),
                         ))),

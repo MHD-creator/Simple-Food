@@ -13,8 +13,12 @@ export interface ICommande extends Document {
   deliveryPhone: string;
   notes?: string;
   cuisinier: mongoose.Types.ObjectId;
+  livreur?: mongoose.Types.ObjectId;
   estimatedDeliveryTime?: Date;
   actualDeliveryTime?: Date;
+  deliveryLat?: number;
+  deliveryLng?: number;
+  deliveryFee?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -71,12 +75,26 @@ const commandeSchema = new Schema<ICommande>({
     ref: 'User',
     required: true
   },
+  livreur: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+  },
   estimatedDeliveryTime: {
     type: Date
   },
   actualDeliveryTime: {
     type: Date
-  }
+  },
+  deliveryLat: {
+    type: Number,
+  },
+  deliveryLng: {
+    type: Number,
+  },
+  deliveryFee: {
+    type: Number,
+    min: [0, "Les frais de livraison ne peuvent pas être négatifs"],
+  },
 }, {
   timestamps: true
 });

@@ -6,15 +6,28 @@ class CommandeService {
     required List<Map<String, dynamic>> plats, // [{ plat: id, quantity: n }]
     required String deliveryAddress,
     required String deliveryPhone,
+    double? deliveryLat,
+    double? deliveryLng,
+    double? deliveryFee,
+    String? paymentMethod,
+    String? paymentStatus,
+    Map<String, dynamic>? paymentInfo,
     String? notes,
   }) async {
     try {
-      final res = await ApiService.post('/commandes', {
+      final body = <String, dynamic>{
         'plats': plats,
         'deliveryAddress': deliveryAddress,
         'deliveryPhone': deliveryPhone,
+        if (deliveryLat != null) 'deliveryLat': deliveryLat,
+        if (deliveryLng != null) 'deliveryLng': deliveryLng,
+        if (deliveryFee != null) 'deliveryFee': deliveryFee,
+        if (paymentMethod != null) 'paymentMethod': paymentMethod,
+        if (paymentStatus != null) 'paymentStatus': paymentStatus,
+        if (paymentInfo != null) 'paymentInfo': paymentInfo,
         if (notes != null && notes.isNotEmpty) 'notes': notes,
-      });
+      };
+      final res = await ApiService.post('/commandes', body);
       final data = jsonDecode(res.body);
       if (res.statusCode >= 200 && res.statusCode < 300) {
         return {'success': true, 'data': data['data']};

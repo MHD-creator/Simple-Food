@@ -12,8 +12,12 @@ export interface ICommande extends Document {
     deliveryPhone: string;
     notes?: string;
     cuisinier: mongoose.Types.ObjectId;
+    livreur?: mongoose.Types.ObjectId;
     estimatedDeliveryTime?: Date;
     actualDeliveryTime?: Date;
+    deliveryLat?: number;
+    deliveryLng?: number;
+    deliveryFee?: number;
     createdAt: Date;
     updatedAt: Date;
 }

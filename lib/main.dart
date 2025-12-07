@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:simple_food/presentations/screens/auth/login_screen.dart';
 import 'package:simple_food/presentations/screens/client_screens/home_screen.dart';
 import 'package:simple_food/presentations/screens/cookers_screen.dart/index_screen.dart';
+import 'package:simple_food/presentations/screens/livreur_screen.dart/index_screen.dart';
 import 'package:simple_food/presentations/screens/welcome_screen/onboarding_screen.dart';
 import 'package:simple_food/services/api_service.dart';
 import 'package:simple_food/services/cart_service.dart';
@@ -106,6 +107,8 @@ class _MyAppState extends State<MyApp> {
           ? OnboardingScreen(onFinished: _completeOnboarding)
           : _loggedIn && _role == 'cuisinier'
           ? CookerDashboard()
+          : _loggedIn && _role == 'livreur'
+          ? LivreurDashboard()
           : const HomeScreenClient(),
     );
   }

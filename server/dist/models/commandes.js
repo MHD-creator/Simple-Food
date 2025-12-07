@@ -51,12 +51,26 @@ const commandeSchema = new Schema({
         ref: 'User',
         required: true
     },
+    livreur: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+    },
     estimatedDeliveryTime: {
         type: Date
     },
     actualDeliveryTime: {
         type: Date
-    }
+    },
+    deliveryLat: {
+        type: Number,
+    },
+    deliveryLng: {
+        type: Number,
+    },
+    deliveryFee: {
+        type: Number,
+        min: [0, "Les frais de livraison ne peuvent pas être négatifs"],
+    },
 }, {
     timestamps: true
 });

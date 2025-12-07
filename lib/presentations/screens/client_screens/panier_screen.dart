@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:simple_food/services/cart_service.dart';
-import 'package:simple_food/presentations/screens/client_screens/checkout_modal.dart';
+import 'package:simple_food/presentations/screens/client_screens/delivery_detail_screen.dart';
 
 class PanierScreen extends StatefulWidget {
   const PanierScreen({super.key});
@@ -86,11 +86,12 @@ class _PanierScreenState extends State<PanierScreen> {
                       ),
                     ),
                     ElevatedButton(
-                      onPressed: () async {
-                        await showModalBottomSheet(
-                          context: context,
-                          isScrollControlled: true,
-                          builder: (_) => const CheckoutModal(),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const DeliveryDetailScreen(),
+                          ),
                         );
                       },
                       child: const Text("Commander"),

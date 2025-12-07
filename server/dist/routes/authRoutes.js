@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { register, login, getProfile, registerValidation, loginValidation, changePassword, changePasswordValidation } from "../controllers/authController.js";
-import { authenticate } from "../middleware/auth.js";
+import { register, login, getProfile, registerValidation, loginValidation, changePassword, changePasswordValidation, updateKitchenLocation, updateDeliverySettings } from "../controllers/authController.js";
+import { authenticate, authorize } from "../middleware/auth.js";
 const router = Router();
 /**
  * @route   POST /api/auth/register
@@ -26,5 +26,17 @@ router.get('/profile', authenticate, getProfile);
  * @access  Private
  */
 router.put('/change-password', authenticate, changePasswordValidation, changePassword);
+/**
+ * @route   PUT /api/auth/kitchen-location
+ * @desc    Mettre à jour la localisation de la cuisine du cuisinier connecté
+ * @access  Private (cuisinier)
+ */
+router.put('/kitchen-location', authenticate, authorize('cuisinier'), updateKitchenLocation);
+/**
+ * @route   PUT /api/auth/delivery-settings
+ * @desc    Mettre à jour les paramètres de frais de livraison du cuisinier connecté
+ * @access  Private (cuisinier)
+ */
+router.put('/delivery-settings', authenticate, authorize('cuisinier'), updateDeliverySettings);
 export default router;
 //# sourceMappingURL=authRoutes.js.map

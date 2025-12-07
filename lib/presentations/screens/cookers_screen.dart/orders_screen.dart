@@ -221,9 +221,14 @@ class _CookerOrdersScreenState extends State<CookerOrdersScreen> {
                               final c = list[i] as Map<String, dynamic>;
                               final id = (c['_id'] ?? c['id'] ?? '').toString();
                               final status = (c['status'] ?? '').toString();
-                              final total =
-                                  (c['totalAmount'] ?? c['total'] ?? 0)
-                                      .toString();
+                              final totalNum =
+                                  (c['totalAmount'] ?? c['total'] ?? 0) as num;
+                              final deliveryFee =
+                                  (c['deliveryFee'] ?? 0) as num;
+                              final subtotal = deliveryFee > 0
+                                  ? (totalNum - deliveryFee)
+                                  : totalNum;
+                              final total = totalNum.toInt().toString();
                               final client =
                                   c['client'] as Map<String, dynamic>?;
                               final name = (client?['name'] ?? 'Client')
@@ -302,11 +307,30 @@ class _CookerOrdersScreenState extends State<CookerOrdersScreen> {
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Text(
-                                            'Total: $total F',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Sous-total: ${subtotal.toInt()} F',
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                              if (deliveryFee > 0)
+                                                Text(
+                                                  'Livraison: ${deliveryFee.toInt()} F',
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              Text(
+                                                'Total: $total F',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                           PopupMenuButton<String>(
                                             onSelected: (s) =>

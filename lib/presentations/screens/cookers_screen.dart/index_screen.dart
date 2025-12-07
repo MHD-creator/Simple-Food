@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:simple_food/presentations/screens/cookers_screen.dart/food_list_screen.dart';
 import 'package:simple_food/presentations/screens/cookers_screen.dart/orders_screen.dart';
 import 'package:simple_food/presentations/screens/cookers_screen.dart/profile_screen.dart';
+import 'package:simple_food/presentations/screens/cookers_screen.dart/livreurs_screen.dart';
 import 'package:simple_food/services/api_service.dart';
 import 'package:simple_food/presentations/screens/auth/login_screen.dart';
 import 'package:simple_food/services/commande_service.dart';
@@ -378,6 +379,7 @@ class _CuisinierDrawer extends StatelessWidget {
           _drawerItem(Icons.restaurant_menu, 'Mes Plats', context),
           _drawerItem(Icons.receipt_long, 'Mes Commandes', context),
           _drawerItem(Icons.attach_money, 'Mes Revenus', context),
+          _drawerItem(Icons.delivery_dining, 'Mes livreurs', context),
           const Divider(),
           _drawerItem(Icons.person, 'Profil', context),
           _drawerItem(Icons.logout, 'Déconnexion', context, color: Colors.red),
@@ -420,6 +422,11 @@ class _CuisinierDrawer extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const CookerOrdersScreen()),
+          );
+        } else if (label == 'Mes livreurs') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CookerLivreursScreen()),
           );
         } else if (label == 'Profil') {
           Navigator.push(

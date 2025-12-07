@@ -10,9 +10,51 @@ const generateToken = (user) => {
     };
     const secret = process.env.JWT_SECRET;
     if (!secret) {
-        throw new Error('JWT_SECRET environment variable is not defined');
+        throw new Error('JWT_SECRET mal configuré dans les variables d\'environnement');
     }
     return jwt.sign(payload, secret, { expiresIn: '7d' });
+};
+export const updateDeliverySettings = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { deliveryBaseFee, deliveryFeePerKm } = req.body;
+        const user = await User.findById(userId);
+        if (!user) {
+            res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+            return;
+        }
+        if (deliveryBaseFee !== undefined) {
+            if (typeof deliveryBaseFee !== 'number' || deliveryBaseFee < 0) {
+                res.status(400).json({ success: false, message: 'deliveryBaseFee invalide' });
+                return;
+            }
+            user.deliveryBaseFee = deliveryBaseFee;
+        }
+        if (deliveryFeePerKm !== undefined) {
+            if (typeof deliveryFeePerKm !== 'number' || deliveryFeePerKm < 0) {
+                res.status(400).json({ success: false, message: 'deliveryFeePerKm invalide' });
+                return;
+            }
+            user.deliveryFeePerKm = deliveryFeePerKm;
+        }
+        await user.save();
+        res.status(200).json({
+            success: true,
+            message: 'Paramètres de livraison mis à jour',
+            data: {
+                id: user._id,
+                name: user.name,
+                telephone: user.telephone,
+                role: user.role,
+                deliveryBaseFee: user.deliveryBaseFee,
+                deliveryFeePerKm: user.deliveryFeePerKm,
+            },
+        });
+    }
+    catch (error) {
+        console.error('Erreur lors de la mise à jour des paramètres de livraison:', error);
+        res.status(500).json({ success: false, message: 'Erreur serveur' });
+    }
 };
 export const changePasswordValidation = [
     body('currentPassword')
@@ -50,6 +92,43 @@ export const changePassword = async (req, res) => {
     }
     catch (error) {
         console.error('Erreur lors du changement de mot de passe:', error);
+        res.status(500).json({ success: false, message: 'Erreur serveur' });
+    }
+};
+export const updateKitchenLocation = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { kitchenLat, kitchenLng } = req.body;
+        if (typeof kitchenLat !== 'number' || typeof kitchenLng !== 'number') {
+            res.status(400).json({
+                success: false,
+                message: 'kitchenLat et kitchenLng doivent être des nombres',
+            });
+            return;
+        }
+        const user = await User.findById(userId);
+        if (!user) {
+            res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+            return;
+        }
+        user.kitchenLat = kitchenLat;
+        user.kitchenLng = kitchenLng;
+        await user.save();
+        res.status(200).json({
+            success: true,
+            message: 'Localisation de la cuisine mise à jour',
+            data: {
+                id: user._id,
+                name: user.name,
+                telephone: user.telephone,
+                role: user.role,
+                kitchenLat: user.kitchenLat,
+                kitchenLng: user.kitchenLng,
+            },
+        });
+    }
+    catch (error) {
+        console.error('Erreur lors de la mise à jour de la localisation de la cuisine:', error);
         res.status(500).json({ success: false, message: 'Erreur serveur' });
     }
 };
@@ -178,6 +257,8 @@ export const register = async (req, res) => {
             address: user.address,
             profileImage: user.profileImage,
             isActive: user.isActive,
+            deliveryBaseFee: user.deliveryBaseFee,
+            deliveryFeePerKm: user.deliveryFeePerKm,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt
         };
@@ -251,6 +332,8 @@ export const login = async (req, res) => {
             address: user.address,
             profileImage: user.profileImage,
             isActive: user.isActive,
+            deliveryBaseFee: user.deliveryBaseFee,
+            deliveryFeePerKm: user.deliveryFeePerKm,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt
         };

@@ -10,21 +10,21 @@ async function initDb() {
             serverSelectionTimeoutMS: 5000, // Timeout de sélection du serveur
             socketTimeoutMS: 45000, // Timeout du socket
         });
-        console.log("✅ Base de données MongoDB connectée avec succès");
-        console.log(`📍 URI: ${mongoUri}`);
+        console.log(" Base de données MongoDB connectée avec succès");
+        console.log(` URI: ${mongoUri}`);
         // Écouter les événements de connexion
         mongoose.connection.on('error', (error) => {
-            console.error('❌ Erreur de connexion MongoDB:', error);
+            console.error(' Erreur de connexion MongoDB:', error);
         });
         mongoose.connection.on('disconnected', () => {
-            console.log('⚠️ Déconnecté de MongoDB');
+            console.log(' Déconnecté de MongoDB');
         });
         mongoose.connection.on('reconnected', () => {
             console.log('🔄 Reconnecté à MongoDB');
         });
     }
     catch (error) {
-        console.error("❌ Erreur lors de la connexion à la base de données:", error);
+        console.error("Erreur lors de la connexion à la base de données:", error);
         process.exit(1);
     }
 }

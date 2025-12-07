@@ -4,7 +4,7 @@ import 'package:simple_food/services/cart_service.dart';
 import 'package:simple_food/services/review_service.dart';
 import 'package:simple_food/services/api_service.dart';
 import 'package:simple_food/services/plat_service.dart';
-import 'package:simple_food/presentations/screens/client_screens/checkout_modal.dart';
+import 'package:simple_food/presentations/screens/client_screens/delivery_detail_screen.dart';
 
 class PlatDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> plat;
@@ -89,14 +89,30 @@ class _PlatDetailsScreenState extends State<PlatDetailsScreen> {
   Future<void> _orderNow() async {
     final id = widget.plat['id']?.toString();
     if (id == null || id.isEmpty) return;
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => CheckoutModal(
-        overridePlats: [
-          {'plat': id, 'quantity': 1},
-        ],
-      ),
+    // Vider puis remplir le panier avec ce plat unique, puis ouvrir l'écran de
+    // détail de livraison pour permettre au client de renseigner les infos.
+    double _computePrice() {
+      if (_prices.isNotEmpty) {
+        final v = _prices[_selectedPrice]['price'];
+        return (v as num).toDouble();
+      }
+      final plat = widget.plat;
+      final v = (plat['prix'] ?? plat['price'] ?? 0);
+      return (v is num) ? v.toDouble() : double.tryParse(v.toString()) ?? 0.0;
+    }
+
+    CartService.instance.clear();
+    CartService.instance.addItem(
+      id: id,
+      name: (widget.plat['nom'] ?? widget.plat['name'] ?? 'Plat').toString(),
+      image: widget.plat['image']?.toString() ?? '',
+      price: _computePrice(),
+      quantity: 1,
+    );
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const DeliveryDetailScreen()),
     );
   }
 

@@ -119,8 +119,8 @@ export const createPlat = async (req: Request, res: Response): Promise<void> => 
 
     await plat.save();
 
-    // Populer les infos du cuisinier
-    await plat.populate('cuisinier', 'name telephone');
+    // Populer les infos du cuisinier (y compris localisation cuisine et frais de livraison)
+    await plat.populate('cuisinier', 'name telephone address kitchenLat kitchenLng deliveryBaseFee deliveryFeePerKm');
 
     res.status(201).json({
       success: true,
@@ -241,7 +241,7 @@ export const getPlats = async (req: Request, res: Response): Promise<void> => {
     const skip = (pageNum - 1) * limitNum;
 
     const plats = await Plat.find(filter)
-      .populate('cuisinier', 'name telephone')
+      .populate('cuisinier', 'name telephone address kitchenLat kitchenLng deliveryBaseFee deliveryFeePerKm')
       .sort({ promoActive: -1, createdAt: -1 })
       .skip(skip)
       .limit(limitNum);
@@ -274,7 +274,7 @@ export const getPlatById = async (req: Request, res: Response): Promise<void> =>
     const { id } = req.params;
 
     const plat = await Plat.findById(id)
-      .populate('cuisinier', 'name telephone address');
+      .populate('cuisinier', 'name telephone address kitchenLat kitchenLng deliveryBaseFee deliveryFeePerKm');
 
     if (!plat) {
       res.status(404).json({
@@ -336,7 +336,7 @@ export const updatePlat = async (req: Request, res: Response): Promise<void> => 
       id,
       body,
       { new: true, runValidators: true }
-    ).populate('cuisinier', 'name telephone');
+    ).populate('cuisinier', 'name telephone address kitchenLat kitchenLng deliveryBaseFee deliveryFeePerKm');
 
     res.status(200).json({
       success: true,

@@ -8,6 +8,8 @@ class User {
   final String? address;
   final String? profileImage;
   final bool isActive;
+  final double? deliveryBaseFee;
+  final double? deliveryFeePerKm;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -21,6 +23,8 @@ class User {
     this.address,
     this.profileImage,
     required this.isActive,
+    this.deliveryBaseFee,
+    this.deliveryFeePerKm,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -36,14 +40,20 @@ class User {
       address: json['address'],
       profileImage: json['profileImage'],
       isActive: json['isActive'] ?? true,
+      deliveryBaseFee: json['deliveryBaseFee'] != null
+          ? double.tryParse(json['deliveryBaseFee'].toString())
+          : null,
+      deliveryFeePerKm: json['deliveryFeePerKm'] != null
+          ? double.tryParse(json['deliveryFeePerKm'].toString())
+          : null,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'].toString())
           : DateTime.now(),
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'].toString())
           : (json['createdAt'] != null
-              ? DateTime.parse(json['createdAt'].toString())
-              : DateTime.now()),
+                ? DateTime.parse(json['createdAt'].toString())
+                : DateTime.now()),
     );
   }
 
@@ -58,6 +68,8 @@ class User {
       'address': address,
       'profileImage': profileImage,
       'isActive': isActive,
+      'deliveryBaseFee': deliveryBaseFee,
+      'deliveryFeePerKm': deliveryFeePerKm,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -73,6 +85,8 @@ class User {
     String? address,
     String? profileImage,
     bool? isActive,
+    double? deliveryBaseFee,
+    double? deliveryFeePerKm,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -86,6 +100,8 @@ class User {
       address: address ?? this.address,
       profileImage: profileImage ?? this.profileImage,
       isActive: isActive ?? this.isActive,
+      deliveryBaseFee: deliveryBaseFee ?? this.deliveryBaseFee,
+      deliveryFeePerKm: deliveryFeePerKm ?? this.deliveryFeePerKm,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

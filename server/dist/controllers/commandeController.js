@@ -1,6 +1,20 @@
 import { body, validationResult } from "express-validator";
 import { Commande } from "../models/commandes.js";
 import { Plat } from "../models/plat_model.js";
+import { User } from "../models/users_model.js";
+const deg2rad = (deg) => (deg * Math.PI) / 180;
+const haversineKm = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // rayon de la Terre en km
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(deg2rad(lat1)) *
+            Math.cos(deg2rad(lat2)) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+};
 export const commandeValidation = [
     body('plats')
         .isArray({ min: 1 })
@@ -23,6 +37,14 @@ export const commandeValidation = [
         .withMessage('Le téléphone de livraison est obligatoire')
         .matches(/^\+?[0-9]{6,15}$/)
         .withMessage('Format de téléphone invalide'),
+    body('deliveryLat')
+        .optional()
+        .isFloat()
+        .withMessage('Latitude de livraison invalide'),
+    body('deliveryLng')
+        .optional()
+        .isFloat()
+        .withMessage('Longitude de livraison invalide'),
     body('notes')
         .optional()
         .isLength({ max: 500 })
@@ -39,7 +61,7 @@ export const createCommande = async (req, res) => {
             });
             return;
         }
-        const { plats, deliveryAddress, deliveryPhone, notes } = req.body;
+        const { plats, deliveryAddress, deliveryPhone, notes, deliveryLat, deliveryLng } = req.body;
         const clientId = req.user.userId;
         // Vérifier que tous les plats existent et sont disponibles
         const platIds = plats.map((p) => p.plat);
@@ -93,6 +115,36 @@ export const createCommande = async (req, res) => {
             return;
         }
         const cuisinierId = platsFound[0]?.cuisinier;
+        // Vérifier que le cuisinier a bien configuré la géolocalisation de sa cuisine
+        const cuisinier = await User.findById(cuisinierId);
+        if (!cuisinier || cuisinier.kitchenLat == null || cuisinier.kitchenLng == null) {
+            res.status(400).json({
+                success: false,
+                message: "Le cuisinier n'a pas encore configuré la localisation de sa cuisine. La livraison n'est pas possible pour le moment."
+            });
+            return;
+        }
+        // Calculer les frais de livraison si la géolocalisation du client est disponible
+        let deliveryFee = 0;
+        if (typeof deliveryLat === 'number' &&
+            typeof deliveryLng === 'number' &&
+            typeof cuisinier.kitchenLat === 'number' &&
+            typeof cuisinier.kitchenLng === 'number') {
+            const distanceKm = haversineKm(cuisinier.kitchenLat, cuisinier.kitchenLng, deliveryLat, deliveryLng);
+            const baseFee = typeof cuisinier.deliveryBaseFee === 'number'
+                ? cuisinier.deliveryBaseFee
+                : 1000;
+            const feePerKm = typeof cuisinier.deliveryFeePerKm === 'number'
+                ? cuisinier.deliveryFeePerKm
+                : 150;
+            // Calcul simple : frais de base + tarif au km * distance
+            const rawFee = baseFee + feePerKm * distanceKm;
+            // Arrondir à l'entier supérieur pour éviter les décimales FCFA
+            deliveryFee = Math.ceil(rawFee);
+        }
+        if (deliveryFee > 0) {
+            totalAmount += deliveryFee;
+        }
         // Calculer le temps de livraison estimé (30 min + temps de préparation max)
         const maxPrepTime = Math.max(...platsFound.map(p => p.preparationTime || 0));
         const estimatedDeliveryTime = new Date();
@@ -105,7 +157,10 @@ export const createCommande = async (req, res) => {
             deliveryPhone,
             notes,
             cuisinier: cuisinierId,
-            estimatedDeliveryTime
+            estimatedDeliveryTime,
+            deliveryLat,
+            deliveryLng,
+            deliveryFee,
         });
         await commande.save();
         // Décrémenter le stock des plats commandés et mettre à jour la disponibilité si nécessaire
@@ -152,6 +207,17 @@ export const getCommandes = async (req, res) => {
         else if (userRole === 'cuisinier') {
             filter.cuisinier = userId;
         }
+        else if (userRole === 'livreur') {
+            const livreur = await User.findById(userId);
+            if (!livreur || !livreur.cuisinier) {
+                res.status(403).json({
+                    success: false,
+                    message: "Aucun cuisinier associé au livreur."
+                });
+                return;
+            }
+            filter.cuisinier = livreur.cuisinier;
+        }
         if (status)
             filter.status = status;
         const pageNum = parseInt(page);
@@ -160,6 +226,7 @@ export const getCommandes = async (req, res) => {
         const commandes = await Commande.find(filter)
             .populate('client', 'name telephone')
             .populate('cuisinier', 'name telephone address')
+            .populate('livreur', 'name telephone')
             .populate('plats.plat', 'name price image')
             .sort({ createdAt: -1 })
             .skip(skip)
@@ -193,6 +260,7 @@ export const getCommandeById = async (req, res) => {
         const commande = await Commande.findById(id)
             .populate('client', 'name telephone')
             .populate('cuisinier', 'name telephone address')
+            .populate('livreur', 'name telephone')
             .populate('plats.plat', 'name price image description');
         if (!commande) {
             res.status(404).json({
@@ -216,6 +284,16 @@ export const getCommandeById = async (req, res) => {
             });
             return;
         }
+        if (userRole === 'livreur') {
+            const livreur = await User.findById(userId);
+            if (!livreur || !livreur.cuisinier || commande.cuisinier._id.toString() !== livreur.cuisinier.toString()) {
+                res.status(403).json({
+                    success: false,
+                    message: 'Accès non autorisé'
+                });
+                return;
+            }
+        }
         res.status(200).json({
             success: true,
             data: commande
@@ -236,14 +314,6 @@ export const updateCommandeStatus = async (req, res) => {
         const { status } = req.body;
         const userId = req.user.userId;
         const userRole = req.user.role;
-        // Seuls les cuisiniers peuvent modifier le statut
-        if (userRole !== 'cuisinier') {
-            res.status(403).json({
-                success: false,
-                message: 'Seuls les cuisiniers peuvent modifier le statut des commandes'
-            });
-            return;
-        }
         const validStatuses = ['en_attente', 'en_preparation', 'en_livraison', 'livrée', 'annulée'];
         if (!validStatuses.includes(status)) {
             res.status(400).json({
@@ -252,7 +322,38 @@ export const updateCommandeStatus = async (req, res) => {
             });
             return;
         }
-        const commande = await Commande.findOne({ _id: id, cuisinier: userId });
+        let commande = null;
+        if (userRole === 'cuisinier') {
+            commande = await Commande.findOne({ _id: id, cuisinier: userId });
+        }
+        else if (userRole === 'livreur') {
+            const livreur = await User.findById(userId);
+            if (!livreur || !livreur.cuisinier) {
+                res.status(403).json({
+                    success: false,
+                    message: "Aucun cuisinier associé au livreur."
+                });
+                return;
+            }
+            // Le livreur ne peut manipuler que les commandes du cuisinier associé
+            commande = await Commande.findOne({ _id: id, cuisinier: livreur.cuisinier });
+            // Restreindre les statuts autorisés au livreur
+            const livreurAllowed = ['en_livraison', 'livrée'];
+            if (!livreurAllowed.includes(status)) {
+                res.status(403).json({
+                    success: false,
+                    message: 'Le livreur ne peut modifier le statut que vers en_livraison ou livrée'
+                });
+                return;
+            }
+        }
+        else {
+            res.status(403).json({
+                success: false,
+                message: 'Rôle non autorisé pour la mise à jour du statut'
+            });
+            return;
+        }
         if (!commande) {
             res.status(404).json({
                 success: false,
